@@ -1,7 +1,5 @@
 <?php
 
-namespace CRM\UnitLedger\CiviRules\Actions;
-
 use CRM_UnitLedger_ExtensionUtil as E;
 use CRM_UnitLedger_BAO_UnitLedger as UnitLedgerBAO;
 
@@ -10,7 +8,7 @@ use CRM_UnitLedger_BAO_UnitLedger as UnitLedgerBAO;
  * 
  * This action posts unit changes to the ledger in a delta-aware manner.
  */
-class PostDelta extends \CRM_Civirules_Action {
+class CRM_UnitLedger_CiviRules_Actions_PostDelta extends CRM_Civirules_Action {
 
   /**
    * Process the action
