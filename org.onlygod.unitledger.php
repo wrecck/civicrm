@@ -29,14 +29,6 @@ function org_onlygod_unitledger_civicrm_config(&$config) {
  */
 function org_onlygod_unitledger_civicrm_install() {
   _org_onlygod_unitledger_civix_civicrm_install();
-  
-  // Register CiviRules actions
-  if (class_exists('CRM_Civirules_Utils_Upgrader')) {
-    $jsonFile = E::path('civirules_actions.json');
-    if (file_exists($jsonFile)) {
-      CRM_Civirules_Utils_Upgrader::insertActionsFromJson($jsonFile);
-    }
-  }
 }
 
 /**
@@ -44,14 +36,6 @@ function org_onlygod_unitledger_civicrm_install() {
  */
 function org_onlygod_unitledger_civicrm_enable() {
   _org_onlygod_unitledger_civix_civicrm_enable();
-  
-  // Register CiviRules actions
-  if (class_exists('CRM_Civirules_Utils_Upgrader')) {
-    $jsonFile = E::path('civirules_actions.json');
-    if (file_exists($jsonFile)) {
-      CRM_Civirules_Utils_Upgrader::insertActionsFromJson($jsonFile);
-    }
-  }
 }
 
 /**
