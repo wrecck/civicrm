@@ -1,21 +1,10 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<extension key="org.onlygod.unitledger" type="module">
-  <file>org.onlygod.unitledger</file>
+<?xml version="1.0" encoding="UTF-8"?>
+<extension key="org.onlygod.unitledger" type="module" version="1.0" class="CRM_UnitLedger_ExtensionUtil">
+  <file>org.onlygod.unitledger.php</file>
   <name>OnlyGod Unit Ledger</name>
-  <description>Append-only Unit Ledger with activity integration and automated posting</description>
-  <version>1.0.0</version>
+  <label>OnlyGod Unit Ledger</label>
+  <description>An append-only unit ledger system adding CiviRules actions.</description>
   <license>AGPL-3.0</license>
-  <maintainer>OnlyGod Development Team</maintainer>
-  <releaseDate>2025-01-27</releaseDate>
-  <develStage>alpha</develStage>
-  <compatibility>
-    <ver>5.0</ver>
-    <ver>5.1</ver>
-  </compatibility>
-  <urls>
-    <url desc="Documentation">https://github.com/onlygod/unitledger</url>
-  </urls>
-  <requires>
-    <ext>org.civicoop.civirules</ext>
-  </requires>
+  <author>Your Name</author>
+  <version>1.0</version>
 </extension>
