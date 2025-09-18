@@ -166,11 +166,31 @@ function org_onlygod_unitledger_civicrm_permission(&$permissions) {
 }
 
 /**
- * Implements hook_civicrm_civirulesActions.
+ * Implements hook_civicrm_install.
  */
-function org_onlygod_unitledger_civicrm_civirulesActions(&$actions) {
-  $actions['unitledger_post_delta'] = [
-    'class' => 'CRM_UnitLedger_CiviRules_Actions_PostDelta',
-    'label' => E::ts('Post Delta to Unit Ledger'),
-  ];
+function org_onlygod_unitledger_civicrm_install() {
+  _org_onlygod_unitledger_civix_civicrm_install();
+  
+  // Register CiviRules actions
+  if (class_exists('CRM_Civirules_Utils_Upgrader')) {
+    $jsonFile = E::path('civirules_actions.json');
+    if (file_exists($jsonFile)) {
+      CRM_Civirules_Utils_Upgrader::insertActionsFromJson($jsonFile);
+    }
+  }
+}
+
+/**
+ * Implements hook_civicrm_enable.
+ */
+function org_onlygod_unitledger_civicrm_enable() {
+  _org_onlygod_unitledger_civix_civicrm_enable();
+  
+  // Register CiviRules actions
+  if (class_exists('CRM_Civirules_Utils_Upgrader')) {
+    $jsonFile = E::path('civirules_actions.json');
+    if (file_exists($jsonFile)) {
+      CRM_Civirules_Utils_Upgrader::insertActionsFromJson($jsonFile);
+    }
+  }
 }
