@@ -18,7 +18,10 @@ function org_onlygod_unitledger_civicrm_config(&$config) {
   // Register routes
   \CRM\UnitLedger\Config\Route::register();
   
-  // CiviRules actions are registered via hook_civirules_registerActions
+  // Register CiviRules actions (if CiviRules is available)
+  if (class_exists('CRM_Civirules_Utils_Hook')) {
+    \CRM\UnitLedger\CiviRules\Actions\UnitLedgerActions::register();
+  }
 }
 
 /**
@@ -163,12 +166,11 @@ function org_onlygod_unitledger_civicrm_permission(&$permissions) {
 }
 
 /**
- * Implements hook_civirules_registerActions.
+ * Implements hook_civicrm_civirulesActions.
  */
-function org_onlygod_unitledger_civirules_registerActions(&$actions) {
+function org_onlygod_unitledger_civicrm_civirulesActions(&$actions) {
   $actions['unitledger_post_delta'] = [
-    'label' => E::ts('Post Delta to Unit Ledger'),
     'class' => 'CRM_UnitLedger_CiviRules_Actions_PostDelta',
-    'description' => E::ts('Posts unit changes to the ledger in a delta-aware manner'),
+    'label' => E::ts('Post Delta to Unit Ledger'),
   ];
 }
