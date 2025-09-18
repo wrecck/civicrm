@@ -96,8 +96,6 @@ class CRM_UnitLedger_CiviRules_Actions_PostDelta extends CRM_Civirules_Action {
    * @param int $ruleActionId
    * @return bool|string
    */
-  public function getExtraDataInputUrl($ruleActionId) {
-    return FALSE;
-  }
+
 
 }
