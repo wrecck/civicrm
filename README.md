@@ -10,7 +10,7 @@ An append-only unit ledger system for CiviCRM that integrates with activities to
 - **CSV Import**: Import unit data with dry-run and duplicate handling
 - **Case Integration**: View unit ledger as a case tab
 - **SearchKit Reports**: Generate reports by case/program/date range
-- **CiviRules Integration**: Automate unit posting based on activity triggers
+- **CiviRules Integration**: Automate unit posting based on activity triggers (optional)
 
 ## Installation
 

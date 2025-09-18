@@ -16,6 +16,6 @@
     <url desc="Documentation">https://github.com/onlygod/unitledger</url>
   </urls>
   <requires>
-    <ext>org.civicrm.civirules</ext>
+    <ext>org.civicoop.civirules</ext>
   </requires>
 </extension>

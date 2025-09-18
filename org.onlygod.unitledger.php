@@ -18,8 +18,10 @@ function org_onlygod_unitledger_civicrm_config(&$config) {
   // Register routes
   \CRM\UnitLedger\Config\Route::register();
   
-  // Register CiviRules actions
-  \CRM\UnitLedger\CiviRules\Actions\UnitLedgerActions::register();
+  // Register CiviRules actions (if CiviRules is available)
+  if (class_exists('CRM_Civirules_Utils_Hook')) {
+    \CRM\UnitLedger\CiviRules\Actions\UnitLedgerActions::register();
+  }
 }
 
 /**
