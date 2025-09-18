@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <extension key="org.onlygod.unitledger" type="module" version="1.0" class="CRM_UnitLedger_ExtensionUtil">
-  <file>org.onlygod.unitledger.php</file>
+  <file>org.onlygod.unitledger</file>
   <name>OnlyGod Unit Ledger</name>
   <label>OnlyGod Unit Ledger</label>
   <description>An append-only unit ledger system adding CiviRules actions.</description>
