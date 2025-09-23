@@ -34,11 +34,16 @@ class CRM_UnitLedger_Upgrader extends CRM_Extension_Upgrader_Base {
    * Register CiviRules components from JSON files
    */
   private function registerCiviRulesComponents() {
+    // Add debugging
+    \Civi::log()->info('Unit Ledger: registerCiviRulesComponents called');
+    
     // Check if CiviRules is available
     if (!class_exists('CRM_Civirules_Utils_Upgrader')) {
       \Civi::log()->warning('CiviRules not available; skipping Unit Ledger component registration.');
       return;
     }
+
+    \Civi::log()->info('Unit Ledger: CiviRules available, registering components');
 
     // Register triggers, conditions, and actions
     $this->registerTriggers();
@@ -71,8 +76,18 @@ class CRM_UnitLedger_Upgrader extends CRM_Extension_Upgrader_Base {
    */
   private function registerActions() {
     $jsonFile = E::path('civirules_actions.json');
+    \Civi::log()->info("Unit Ledger: Looking for actions JSON at {$jsonFile}");
+    
     if (file_exists($jsonFile)) {
-      CRM_Civirules_Utils_Upgrader::insertActionsFromJson($jsonFile);
+      \Civi::log()->info('Unit Ledger: Actions JSON file found, registering actions');
+      try {
+        CRM_Civirules_Utils_Upgrader::insertActionsFromJson($jsonFile);
+        \Civi::log()->info('Unit Ledger: Actions registered successfully');
+      } catch (Exception $e) {
+        \Civi::log()->error('Unit Ledger: Error registering actions: ' . $e->getMessage());
+      }
+    } else {
+      \Civi::log()->error("Unit Ledger: Actions JSON file not found at {$jsonFile}");
     }
   }
 }
