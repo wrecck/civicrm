@@ -14,6 +14,9 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
    */
   public function processAction(CRM_Civirules_TriggerData_TriggerData $triggerData) {
     try {
+      // Debug: Log what we're getting
+      $this->logAction('PostDelta triggered', $triggerData, \Psr\Log\LogLevel::INFO);
+      
       // Get the activity data - try different ways depending on trigger
       $activity = $triggerData->getEntityData('Activity');
       
@@ -31,9 +34,17 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         return;
       }
 
-      $activityId = $activity['id'];
-      $activityType = $activity['activity_type_id'];
+      // Debug: Log the activity data
+      $this->logAction('Activity data: ' . json_encode($activity), $triggerData, \Psr\Log\LogLevel::INFO);
+
+      $activityId = $activity['id'] ?? NULL;
+      $activityType = $activity['activity_type_id'] ?? NULL;
       $caseId = $activity['case_id'] ?? NULL;
+      
+      if (empty($activityId) || empty($activityType)) {
+        $this->logAction('Missing activity ID or type', $triggerData, \Psr\Log\LogLevel::ERROR);
+        return;
+      }
       
       // Get contact ID properly - handle both numeric and array cases
       $contactId = $triggerData->getContactId();
@@ -62,7 +73,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       // Determine entry type and program based on activity type
       $entryInfo = $this->getEntryInfo($activityType);
       if (!$entryInfo) {
-        $this->logAction('Activity type not supported for ledger posting', $triggerData, \Psr\Log\LogLevel::WARNING);
+        $this->logAction('Activity type not supported for ledger posting: ' . $activityType, $triggerData, \Psr\Log\LogLevel::WARNING);
         return;
       }
 
@@ -130,23 +141,39 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
    * @return array|null
    */
   private function getEntryInfo($activityTypeId) {
-    // Get activity type name
-    $activityType = civicrm_api3('OptionValue', 'getvalue', [
-      'option_group_id' => 'activity_type',
-      'value' => $activityTypeId,
-      'return' => 'name'
-    ]);
+    try {
+      // Ensure we have a valid activity type ID
+      if (empty($activityTypeId) || !is_numeric($activityTypeId)) {
+        return NULL;
+      }
+      
+      // Get activity type name
+      $result = civicrm_api3('OptionValue', 'get', [
+        'option_group_id' => 'activity_type',
+        'value' => (int) $activityTypeId,
+        'return' => 'name'
+      ]);
+      
+      if ($result['count'] == 0) {
+        return NULL;
+      }
+      
+      $activityType = $result['values'][0]['name'];
+      
+      $entryMap = [
+        'FCS Housing Authorization' => ['entry_type' => 'deposit', 'program' => 'Housing'],
+        'FCS Employment Authorization' => ['entry_type' => 'deposit', 'program' => 'Employment'],
+        'Housing Units Delivered' => ['entry_type' => 'delivery', 'program' => 'Housing'],
+        'Employment Units Delivered' => ['entry_type' => 'delivery', 'program' => 'Employment'],
+        'Unit Allocation - Housing' => ['entry_type' => 'adjustment', 'program' => 'Housing'],
+        'Unit Allocation - Employment' => ['entry_type' => 'adjustment', 'program' => 'Employment'],
+      ];
 
-    $entryMap = [
-      'FCS Housing Authorization' => ['entry_type' => 'deposit', 'program' => 'Housing'],
-      'FCS Employment Authorization' => ['entry_type' => 'deposit', 'program' => 'Employment'],
-      'Housing Units Delivered' => ['entry_type' => 'delivery', 'program' => 'Housing'],
-      'Employment Units Delivered' => ['entry_type' => 'delivery', 'program' => 'Employment'],
-      'Unit Allocation - Housing' => ['entry_type' => 'adjustment', 'program' => 'Housing'],
-      'Unit Allocation - Employment' => ['entry_type' => 'adjustment', 'program' => 'Employment'],
-    ];
-
-    return $entryMap[$activityType] ?? NULL;
+      return $entryMap[$activityType] ?? NULL;
+      
+    } catch (Exception $e) {
+      return NULL;
+    }
   }
 
   /**
