@@ -60,6 +60,31 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         }
       }
 
+      // If no case_id in activity, try to find it from the trigger data
+      if (empty($caseId)) {
+        $case = $triggerData->getEntityData('Case');
+        if (!empty($case['id'])) {
+          $caseId = $case['id'];
+        }
+      }
+
+      // If still no case ID, try to get it from the contact's active cases
+      if (empty($caseId)) {
+        $contactId = $triggerData->getContactId();
+        if ($contactId) {
+          $cases = civicrm_api3('Case', 'get', [
+            'contact_id' => $contactId,
+            'is_deleted' => 0,
+            'status_id' => ['!=' => 'Closed'],
+            'options' => ['limit' => 1, 'sort' => 'id DESC']
+          ]);
+          
+          if ($cases['count'] > 0) {
+            $caseId = $cases['values'][0]['id'];
+          }
+        }
+      }
+
       if (empty($caseId)) {
         $this->logAction('No case ID found for activity', $triggerData, \Psr\Log\LogLevel::ERROR);
         return;
