@@ -1,0 +1,5 @@
+{
+    "name": "onlygod/unitledger",
+    "description": "Unit Ledger CiviRules Action",
+    "type": "civicrm-ext"
+}

@@ -1,7 +1,0 @@
-[
-  {
-    "name": "unitledger_post_delta",
-    "label": "Post Delta to Unit Ledger",
-    "class_name": "CRM_UnitLedger_CiviRules_Action_PostDelta"
-  }
-]
