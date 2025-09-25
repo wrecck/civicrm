@@ -14,8 +14,18 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
    */
   public function processAction(CRM_Civirules_TriggerData_TriggerData $triggerData) {
     try {
-      // Get the activity data
+      // Get the activity data - try different ways depending on trigger
       $activity = $triggerData->getEntityData('Activity');
+      
+      // If no activity data, try to get it from case activity trigger
+      if (empty($activity)) {
+        $case = $triggerData->getEntityData('Case');
+        if (!empty($case['activities'])) {
+          // Get the most recent activity from the case
+          $activity = end($case['activities']);
+        }
+      }
+      
       if (empty($activity)) {
         $this->logAction('No activity data found in trigger', $triggerData, \Psr\Log\LogLevel::ERROR);
         return;
@@ -24,10 +34,28 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       $activityId = $activity['id'];
       $activityType = $activity['activity_type_id'];
       $caseId = $activity['case_id'] ?? NULL;
+      
+      // Get contact ID properly - handle both numeric and array cases
       $contactId = $triggerData->getContactId();
+      if (empty($contactId) || !is_numeric($contactId)) {
+        // Try to get contact ID from case data
+        $case = $triggerData->getEntityData('Case');
+        if (!empty($case['contact_id'])) {
+          if (is_array($case['contact_id'])) {
+            $contactId = !empty($case['contact_id']) ? reset($case['contact_id']) : NULL;
+          } else {
+            $contactId = $case['contact_id'];
+          }
+        }
+      }
 
       if (empty($caseId)) {
         $this->logAction('No case ID found for activity', $triggerData, \Psr\Log\LogLevel::ERROR);
+        return;
+      }
+
+      if (empty($contactId)) {
+        $this->logAction('No contact ID found', $triggerData, \Psr\Log\LogLevel::ERROR);
         return;
       }
 
