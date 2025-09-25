@@ -190,14 +190,21 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       
       $activityType = $result['values'][0]['name'];
       
-      $entryMap = [
-        'FCS Housing Authorization' => ['entry_type' => 'deposit', 'program' => 'Housing'],
-        'FCS Employment Authorization' => ['entry_type' => 'deposit', 'program' => 'Employment'],
-        'Housing Units Delivered' => ['entry_type' => 'delivery', 'program' => 'Housing'],
-        'Employment Units Delivered' => ['entry_type' => 'delivery', 'program' => 'Employment'],
-        'Unit Allocation - Housing' => ['entry_type' => 'adjustment', 'program' => 'Housing'],
-        'Unit Allocation - Employment' => ['entry_type' => 'adjustment', 'program' => 'Employment'],
-      ];
+      // DEBUG: Log the activity type we found
+      error_log("DEBUG: Found activity type: " . $activityType . " (ID: " . $activityTypeId . ")");
+      
+// Update the entryMap in the getEntryInfo method:
+
+$entryMap = [
+  'FCS Housing Authorization' => ['entry_type' => 'deposit', 'program' => 'Housing'],
+  'FCS Housing Authorization (Allocation)' => ['entry_type' => 'deposit', 'program' => 'Housing'],
+  'FCS Employment Authorization' => ['entry_type' => 'deposit', 'program' => 'Employment'],
+  'FCS Employment Authorization (Allocation)' => ['entry_type' => 'deposit', 'program' => 'Employment'],
+  'Housing Units Delivered' => ['entry_type' => 'delivery', 'program' => 'Housing'],
+  'Employment Units Delivered' => ['entry_type' => 'delivery', 'program' => 'Employment'],
+  'Unit Allocation - Housing' => ['entry_type' => 'adjustment', 'program' => 'Housing'],
+  'Unit Allocation - Employment' => ['entry_type' => 'adjustment', 'program' => 'Employment'],
+];
 
       return $entryMap[$activityType] ?? NULL;
       
