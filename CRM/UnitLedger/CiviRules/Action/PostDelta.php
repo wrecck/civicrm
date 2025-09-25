@@ -60,7 +60,12 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         }
       }
 
-      // If no case_id in activity, try to find it from the trigger data
+      // If no case_id in activity, try to get it from URL parameter
+      if (empty($caseId)) {
+        $caseId = CRM_Utils_Request::retrieve('caseid', 'Positive');
+      }
+
+      // If still no case_id, try to get it from the trigger data
       if (empty($caseId)) {
         $case = $triggerData->getEntityData('Case');
         if (!empty($case['id'])) {
