@@ -192,7 +192,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         return NULL;
       }
       
-      $activityType = $result['values'][0]['name'];
+      $activityType = $result['values'][$result['id']]['name'];
       $this->logAction("Found activity type: " . $activityType . " (ID: " . $activityTypeId . ")", NULL, \Psr\Log\LogLevel::INFO);
 
       $entryMap = [
