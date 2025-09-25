@@ -223,9 +223,12 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
    */
   private function calculateUnits($activity, $entryInfo) {
     if ($entryInfo['entry_type'] === 'deposit') {
-      // For authorizations, get units from Benefit Limitation field
-      // This would need to be mapped to the actual custom field
-      return $activity['custom_benefit_limitation'] ?? 0;
+      // For authorizations, get units from Housing/Employment Units Allocated fields
+      $fieldName = $this->getCustomFieldName($entryInfo['program'] . ' Units Allocated');
+      if ($fieldName) {
+        return $activity[$fieldName] ?? 0;
+      }
+      return 0;
     }
     elseif ($entryInfo['entry_type'] === 'delivery') {
       // For deliveries, convert duration to units
@@ -234,10 +237,49 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       return $duration * $multiplier;
     }
     elseif ($entryInfo['entry_type'] === 'adjustment') {
-      // For adjustments, get units from custom field
-      return $activity['custom_units_allocated'] ?? 0;
+      // For adjustments, get units from Housing/Employment Units Allocated fields
+      $fieldName = $this->getCustomFieldName($entryInfo['program'] . ' Units Allocated');
+      if ($fieldName) {
+        return $activity[$fieldName] ?? 0;
+      }
+      return 0;
     }
 
+    return NULL;
+  }
+
+  /**
+   * Get custom field name by label
+   *
+   * @param string $label
+   * @return string|null
+   */
+  private function getCustomFieldName($label) {
+    static $fieldCache = [];
+    
+    if (isset($fieldCache[$label])) {
+      return $fieldCache[$label];
+    }
+    
+    try {
+      $sql = "
+        SELECT cf.column_name 
+        FROM civicrm_custom_field cf
+        JOIN civicrm_custom_group cg ON cf.custom_group_id = cg.id
+        WHERE cf.label = %1 AND cg.is_active = 1
+      ";
+      
+      $params = [1 => [$label, 'String']];
+      $dao = CRM_Core_DAO::executeQuery($sql, $params);
+      
+      if ($dao->fetch()) {
+        $fieldCache[$label] = $dao->column_name;
+        return $dao->column_name;
+      }
+    } catch (Exception $e) {
+      $this->logAction("Error finding custom field '{$label}': " . $e->getMessage(), NULL, \Psr\Log\LogLevel::ERROR);
+    }
+    
     return NULL;
   }
 
