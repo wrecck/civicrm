@@ -38,6 +38,23 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       $this->logAction('Activity data: ' . json_encode($activity), $triggerData, \Psr\Log\LogLevel::INFO);
 
       $activityId = $activity['id'] ?? NULL;
+      
+      // Check if we have custom field data, if not, fetch the complete activity
+      if (empty($activity['custom_']) && !empty($activityId)) {
+        try {
+          $fullActivity = civicrm_api3('Activity', 'get', [
+            'id' => $activityId,
+            'return' => ['custom_*', 'duration', 'activity_type_id', 'case_id']
+          ]);
+          
+          if ($fullActivity['count'] > 0) {
+            $activity = array_merge($activity, $fullActivity['values'][$activityId]);
+            $this->logAction('Fetched full activity data: ' . json_encode($activity), $triggerData, \Psr\Log\LogLevel::INFO);
+          }
+        } catch (Exception $e) {
+          $this->logAction('Error fetching full activity data: ' . $e->getMessage(), $triggerData, \Psr\Log\LogLevel::ERROR);
+        }
+      }
       $activityType = $activity['activity_type_id'] ?? NULL;
       $caseId = $activity['case_id'] ?? NULL;
       
