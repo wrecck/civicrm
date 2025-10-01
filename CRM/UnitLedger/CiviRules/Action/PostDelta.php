@@ -336,7 +336,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
   private function insertLedgerEntry($data) {
     // Calculate running balance
     $balanceAfter = $this->calculateRunningBalance($data['case_id'], $data['program'], $data['units_delta']);
-    
+    $this->logAction("insertLedgerEntry: $balanceAfter");
     // Add balance to data
     $data['balance_after'] = $balanceAfter;
     
