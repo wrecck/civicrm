@@ -243,9 +243,14 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
   private function calculateUnits($activity, $entryInfo) {
     if ($entryInfo['entry_type'] === 'deposit') {
       // For authorizations, get units from Housing/Employment Units Allocated fields
-      $fieldName = $this->getCustomFieldName($entryInfo['program'] . ' Units Allocated');
+      $fieldLabel = $entryInfo['program'] . ' Units Allocated';
+      $this->logAction("Looking for custom field: " . $fieldLabel, NULL, \Psr\Log\LogLevel::INFO);
+      $fieldName = $this->getCustomFieldName($fieldLabel);
+      $this->logAction("Found field name: " . ($fieldName ?: 'NULL'), NULL, \Psr\Log\LogLevel::INFO);
       if ($fieldName) {
-        return $activity[$fieldName] ?? 0;
+        $value = $activity[$fieldName] ?? 0;
+        $this->logAction("Field value: " . $value, NULL, \Psr\Log\LogLevel::INFO);
+        return $value;
       }
       return 0;
     }
@@ -281,6 +286,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
     }
     
     try {
+      $this->logAction("Searching for custom field with label: " . $label, NULL, \Psr\Log\LogLevel::INFO);
       $sql = "
         SELECT cf.column_name 
         FROM civicrm_custom_field cf
@@ -293,7 +299,10 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       
       if ($dao->fetch()) {
         $fieldCache[$label] = $dao->column_name;
+        $this->logAction("Found custom field: " . $dao->column_name, NULL, \Psr\Log\LogLevel::INFO);
         return $dao->column_name;
+      } else {
+        $this->logAction("No custom field found for label: " . $label, NULL, \Psr\Log\LogLevel::WARNING);
       }
     } catch (Exception $e) {
       $this->logAction("Error finding custom field '{$label}': " . $e->getMessage(), NULL, \Psr\Log\LogLevel::ERROR);
