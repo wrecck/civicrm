@@ -301,7 +301,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
     try {
       $this->logAction("Searching for custom field with label: " . $label, NULL, \Psr\Log\LogLevel::INFO);
       $sql = "
-        SELECT cf.column_name 
+        SELECT cf.id, cf.column_name 
         FROM civicrm_custom_field cf
         JOIN civicrm_custom_group cg ON cf.custom_group_id = cg.id
         WHERE cf.label = %1 AND cg.is_active = 1
@@ -311,9 +311,10 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       $dao = CRM_Core_DAO::executeQuery($sql, $params);
       
       if ($dao->fetch()) {
-        $fieldCache[$label] = $dao->column_name;
-        $this->logAction("Found custom field: " . $dao->column_name, NULL, \Psr\Log\LogLevel::INFO);
-        return $dao->column_name;
+        $fieldName = 'custom_' . $dao->id;
+        $fieldCache[$label] = $fieldName;
+        $this->logAction("Found custom field: " . $dao->column_name . " (ID: " . $dao->id . ", API name: " . $fieldName . ")", NULL, \Psr\Log\LogLevel::INFO);
+        return $fieldName;
       } else {
         $this->logAction("No custom field found for label: " . $label, NULL, \Psr\Log\LogLevel::WARNING);
       }
