@@ -248,8 +248,12 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       $fieldName = $this->getCustomFieldName($fieldLabel);
       $this->logAction("Found field name: " . ($fieldName ?: 'NULL'), NULL, \Psr\Log\LogLevel::INFO);
       if ($fieldName) {
+        // Debug: Show all available field names in activity data
+        $availableFields = array_keys($activity);
+        $this->logAction("Available fields in activity: " . implode(', ', $availableFields), NULL, \Psr\Log\LogLevel::INFO);
+        
         $value = $activity[$fieldName] ?? 0;
-        $this->logAction("Field value: " . $value, NULL, \Psr\Log\LogLevel::INFO);
+        $this->logAction("Field value for '{$fieldName}': " . $value, NULL, \Psr\Log\LogLevel::INFO);
         return $value;
       }
       return 0;
@@ -262,9 +266,18 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
     }
     elseif ($entryInfo['entry_type'] === 'adjustment') {
       // For adjustments, get units from Housing/Employment Units Allocated fields
-      $fieldName = $this->getCustomFieldName($entryInfo['program'] . ' Units Allocated');
+      $fieldLabel = $entryInfo['program'] . ' Units Allocated';
+      $this->logAction("Looking for custom field (adjustment): " . $fieldLabel, NULL, \Psr\Log\LogLevel::INFO);
+      $fieldName = $this->getCustomFieldName($fieldLabel);
+      $this->logAction("Found field name (adjustment): " . ($fieldName ?: 'NULL'), NULL, \Psr\Log\LogLevel::INFO);
       if ($fieldName) {
-        return $activity[$fieldName] ?? 0;
+        // Debug: Show all available field names in activity data
+        $availableFields = array_keys($activity);
+        $this->logAction("Available fields in activity (adjustment): " . implode(', ', $availableFields), NULL, \Psr\Log\LogLevel::INFO);
+        
+        $value = $activity[$fieldName] ?? 0;
+        $this->logAction("Field value for '{$fieldName}' (adjustment): " . $value, NULL, \Psr\Log\LogLevel::INFO);
+        return $value;
       }
       return 0;
     }
