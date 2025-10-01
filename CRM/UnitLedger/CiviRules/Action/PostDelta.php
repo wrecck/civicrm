@@ -125,7 +125,9 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       }
 
       // Calculate units based on entry type
+      $this->logAction('Calculating units for entry type: ' . $entryInfo['entry_type'] . ', program: ' . $entryInfo['program'], $triggerData, \Psr\Log\LogLevel::INFO);
       $units = $this->calculateUnits($activity, $entryInfo);
+      $this->logAction('Calculated units: ' . $units, $triggerData, \Psr\Log\LogLevel::INFO);
       if ($units === NULL) {
         $this->logAction('Could not calculate units for activity', $triggerData, \Psr\Log\LogLevel::WARNING);
         return;
@@ -342,7 +344,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
     // Store in a simple custom table for now
     $this->insertLedgerEntry($ledgerData);
 
-    $this->logAction("Posted {$entryInfo['entry_type']} of {$units} units for {$entryInfo['program']} program", $triggerData);
+    $this->logAction("Posted {$entryInfo['entry_type']} of {$units} units for {$entryInfo['program']} program", $triggerData, \Psr\Log\LogLevel::INFO);
   }
 
   /**
@@ -353,7 +355,6 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
   private function insertLedgerEntry($data) {
     // Calculate running balance
     $balanceAfter = $this->calculateRunningBalance($data['case_id'], $data['program'], $data['units_delta']);
-    $this->logAction("insertLedgerEntry: $balanceAfter");
     // Add balance to data
     $data['balance_after'] = $balanceAfter;
     
