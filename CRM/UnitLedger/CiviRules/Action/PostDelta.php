@@ -126,6 +126,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
 
       // Calculate units based on entry type
       $this->logAction('Calculating units for entry type: ' . $entryInfo['entry_type'] . ', program: ' . $entryInfo['program'], $triggerData, \Psr\Log\LogLevel::INFO);
+      $this->logAction('EntryInfo data: ' . json_encode($entryInfo), $triggerData, \Psr\Log\LogLevel::INFO);
       $units = $this->calculateUnits($activity, $entryInfo);
       $this->logAction('Calculated units: ' . $units, $triggerData, \Psr\Log\LogLevel::INFO);
       if ($units === NULL) {
@@ -241,13 +242,12 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
    * @return int|null
    */
   private function calculateUnits($activity, $entryInfo) {
-    if ($entryInfo['entry_type'] === 'deposit') {
-      // For authorizations, get units from Housing/Employment Units Allocated fields
-      $fieldLabel = $entryInfo['program'] . ' Units Allocated';
-      $this->logAction("Looking for custom field: " . $fieldLabel, NULL, \Psr\Log\LogLevel::INFO);
-      $fieldName = $this->getCustomFieldName($fieldLabel);
-      $this->logAction("Found field name: " . ($fieldName ?: 'NULL'), NULL, \Psr\Log\LogLevel::INFO);
-      if ($fieldName) {
+    try {
+      if ($entryInfo['entry_type'] === 'deposit') {
+        // Hardcoded to use custom_309 for units allocation
+        $fieldName = 'custom_309';
+        $this->logAction("Using hardcoded field: " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
+        
         // Debug: Show all available field names in activity data
         $availableFields = array_keys($activity);
         $this->logAction("Available fields in activity: " . implode(', ', $availableFields), NULL, \Psr\Log\LogLevel::INFO);
@@ -256,21 +256,17 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         $this->logAction("Field value for '{$fieldName}': " . $value, NULL, \Psr\Log\LogLevel::INFO);
         return $value;
       }
-      return 0;
-    }
-    elseif ($entryInfo['entry_type'] === 'delivery') {
-      // For deliveries, convert duration to units
-      $duration = $activity['duration'] ?? 0;
-      $multiplier = ($entryInfo['program'] === 'Housing') ? 1 : 4;
-      return $duration * $multiplier;
-    }
-    elseif ($entryInfo['entry_type'] === 'adjustment') {
-      // For adjustments, get units from Housing/Employment Units Allocated fields
-      $fieldLabel = $entryInfo['program'] . ' Units Allocated';
-      $this->logAction("Looking for custom field (adjustment): " . $fieldLabel, NULL, \Psr\Log\LogLevel::INFO);
-      $fieldName = $this->getCustomFieldName($fieldLabel);
-      $this->logAction("Found field name (adjustment): " . ($fieldName ?: 'NULL'), NULL, \Psr\Log\LogLevel::INFO);
-      if ($fieldName) {
+      elseif ($entryInfo['entry_type'] === 'delivery') {
+        // For deliveries, convert duration to units
+        $duration = $activity['duration'] ?? 0;
+        $multiplier = ($entryInfo['program'] === 'Housing') ? 1 : 4;
+        return $duration * $multiplier;
+      }
+      elseif ($entryInfo['entry_type'] === 'adjustment') {
+        // Hardcoded to use custom_309 for units allocation adjustments
+        $fieldName = 'custom_309';
+        $this->logAction("Using hardcoded field (adjustment): " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
+        
         // Debug: Show all available field names in activity data
         $availableFields = array_keys($activity);
         $this->logAction("Available fields in activity (adjustment): " . implode(', ', $availableFields), NULL, \Psr\Log\LogLevel::INFO);
@@ -279,10 +275,12 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         $this->logAction("Field value for '{$fieldName}' (adjustment): " . $value, NULL, \Psr\Log\LogLevel::INFO);
         return $value;
       }
-      return 0;
-    }
 
-    return NULL;
+      return NULL;
+    } catch (Exception $e) {
+      $this->logAction("Error in calculateUnits: " . $e->getMessage(), NULL, \Psr\Log\LogLevel::ERROR);
+      return NULL;
+    }
   }
 
   /**
@@ -299,6 +297,11 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
     }
     
     try {
+      // Ensure label is a string
+      if (!is_string($label)) {
+        $this->logAction("getCustomFieldName received non-string label: " . gettype($label), NULL, \Psr\Log\LogLevel::ERROR);
+        return NULL;
+      }
       $this->logAction("Searching for custom field with label: " . $label, NULL, \Psr\Log\LogLevel::INFO);
       $sql = "
         SELECT cf.id, cf.column_name 
