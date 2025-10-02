@@ -58,6 +58,11 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       $activityType = $activity['activity_type_id'] ?? NULL;
       $caseId = $activity['case_id'] ?? NULL;
       
+      // Handle case_id if it's an array
+      if (is_array($caseId)) {
+        $caseId = !empty($caseId) ? reset($caseId) : NULL;
+      }
+      
       if (empty($activityId) || empty($activityType)) {
         $this->logAction('Missing activity ID or type', $triggerData, \Psr\Log\LogLevel::ERROR);
         return;
