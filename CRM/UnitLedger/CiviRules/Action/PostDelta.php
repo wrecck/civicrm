@@ -366,7 +366,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       'created_date' => date('Y-m-d H:i:s'),
       'created_by' => CRM_Core_Session::getLoggedInContactID(),
     ];
-
+    $this->logAction("Posting ledger data: " . json_encode($ledgerData), $triggerData, \Psr\Log\LogLevel::INFO);
     // Store in a simple custom table for now
     $this->insertLedgerEntry($ledgerData);
 
