@@ -27,15 +27,25 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       $this->logAction('About to get entity data...', $triggerData, \Psr\Log\LogLevel::INFO);
       
       try {
-        // Get all entity data first
-        $allEntityData = $triggerData->getEntityData();
-        $this->logAction('Successfully got entity data', $triggerData, \Psr\Log\LogLevel::INFO);
+        // Try to get entity data for common entity types
+        $entityTypes = ['Case', 'Activity', 'Contact'];
+        $allEntityData = [];
+        
+        foreach ($entityTypes as $entityType) {
+          try {
+            $entityData = $triggerData->getEntityData($entityType);
+            if (!empty($entityData)) {
+              $allEntityData[$entityType] = $entityData;
+              $this->logAction("Entity {$entityType} data: " . json_encode($entityData), $triggerData, \Psr\Log\LogLevel::INFO);
+            }
+          } catch (Exception $e) {
+            $this->logAction("No {$entityType} data available: " . $e->getMessage(), $triggerData, \Psr\Log\LogLevel::INFO);
+          }
+        }
+        
+        $this->logAction('Successfully processed entity data', $triggerData, \Psr\Log\LogLevel::INFO);
         $this->logAction('Available entity data: ' . json_encode(array_keys($allEntityData)), $triggerData, \Psr\Log\LogLevel::INFO);
         
-        // Log all entity data for debugging
-        foreach ($allEntityData as $entityType => $entityData) {
-          $this->logAction("Entity {$entityType} data: " . json_encode($entityData), $triggerData, \Psr\Log\LogLevel::INFO);
-        }
       } catch (Exception $e) {
         $this->logAction('Error getting entity data: ' . $e->getMessage(), $triggerData, \Psr\Log\LogLevel::ERROR);
         return;
