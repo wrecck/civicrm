@@ -347,14 +347,22 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
    */
   private function calculateUnits($activity, $entryInfo) {
     try {
+            
+    // Debug: Show all available field names in activity data
+      $availableFields = array_keys($activity);
+      $this->logAction("Available fields in activity (".$entryInfo['entry_type']."): " . implode(', ', $availableFields), NULL, \Psr\Log\LogLevel::INFO);
+      
+      // Loop through and log each field name and value
+      foreach ($availableFields as $fieldName) {
+        $fieldValue = $activity[$fieldName] ?? 'NULL';
+        $this->logAction("Field: {$fieldName} = " . var_export($fieldValue, true), NULL, \Psr\Log\LogLevel::INFO);
+      }
+      
+
       if ($entryInfo['entry_type'] === 'deposit') {
         // Use custom_311 for Total Housing Units Allocated
         $fieldName = 'custom_311';
         $this->logAction("Using Total Housing Units Allocated field: " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
-        
-        // Debug: Show all available field names in activity data
-        $availableFields = array_keys($activity);
-        $this->logAction("Available fields in activity: " . implode(', ', $availableFields), NULL, \Psr\Log\LogLevel::INFO);
         
         $value = $activity[$fieldName] ?? 0;
         
@@ -380,8 +388,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         $this->logAction("Using Total Housing Units Allocated field (adjustment): " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
         
         // Debug: Show all available field names in activity data
-        $availableFields = array_keys($activity);
-        $this->logAction("Available fields in activity (adjustment): " . implode(', ', $availableFields), NULL, \Psr\Log\LogLevel::INFO);
+
         
         $value = $activity[$fieldName] ?? 0;
         
@@ -396,7 +403,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         return $value;
       }
       elseif ($entryInfo['entry_type'] === 'case_opened') {
-        $fieldName = 'custom_309';
+        $fieldName = 'custom_311_-1';
         $this->logAction("Using Total Housing Units Allocated field (case opened): " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
         // For case opening, typically no units are allocated initially
         $this->logAction("Case opened - no units allocated initially", NULL, \Psr\Log\LogLevel::INFO);
