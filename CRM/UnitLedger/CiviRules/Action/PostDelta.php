@@ -60,8 +60,26 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       if (empty($activity)) {
         $case = $triggerData->getEntityData('Case');
         if (!empty($case['activities'])) {
-          // Get the most recent activity from the case
-          $activity = end($case['activities']);
+          // Get the most recent activity ID from the case
+          $activityId = end($case['activities']);
+          $this->logAction('Found activity ID from case: ' . $activityId, $triggerData, \Psr\Log\LogLevel::INFO);
+          
+          // Fetch the full activity data using the ID
+          if (!empty($activityId)) {
+            try {
+              $activityResult = civicrm_api3('Activity', 'get', [
+                'id' => $activityId,
+                'return' => ['activity_type_id', 'duration', 'case_id', 'custom_*']
+              ]);
+              
+              if ($activityResult['count'] > 0) {
+                $activity = $activityResult['values'][$activityId];
+                $this->logAction('Fetched full activity data: ' . json_encode($activity), $triggerData, \Psr\Log\LogLevel::INFO);
+              }
+            } catch (Exception $e) {
+              $this->logAction('Error fetching activity data: ' . $e->getMessage(), $triggerData, \Psr\Log\LogLevel::ERROR);
+            }
+          }
         }
       }
       
