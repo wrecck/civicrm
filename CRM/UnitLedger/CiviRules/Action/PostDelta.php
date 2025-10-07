@@ -73,11 +73,55 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       if (empty($contactId) || !is_numeric($contactId)) {
         // Try to get contact ID from case data
         $case = $triggerData->getEntityData('Case');
+        $this->logAction('Case data for contact ID resolution: ' . json_encode($case), $triggerData, \Psr\Log\LogLevel::INFO);
+        
+        // Try contact_id first
         if (!empty($case['contact_id'])) {
-          if (is_array($case['contact_id'])) {
-            $contactId = !empty($case['contact_id']) ? reset($case['contact_id']) : NULL;
-          } else {
+          if (is_array($case['contact_id']) && !empty($case['contact_id'])) {
+            $contactId = reset($case['contact_id']);
+          } elseif (is_numeric($case['contact_id'])) {
             $contactId = $case['contact_id'];
+          }
+        }
+        
+        // If still no contact ID, try client_id
+        if (empty($contactId) && !empty($case['client_id'])) {
+          if (is_array($case['client_id']) && !empty($case['client_id'])) {
+            $contactId = reset($case['client_id']);
+          } elseif (is_numeric($case['client_id'])) {
+            $contactId = $case['client_id'];
+          }
+        }
+        
+        // If still no contact ID, try to get it from the case ID using API
+        if (empty($contactId) && !empty($caseId)) {
+          try {
+            $caseDetails = civicrm_api3('Case', 'get', [
+              'id' => $caseId,
+              'return' => ['contact_id', 'client_id']
+            ]);
+            
+            if ($caseDetails['count'] > 0) {
+              $caseData = $caseDetails['values'][$caseId];
+              if (!empty($caseData['contact_id'])) {
+                if (is_array($caseData['contact_id']) && !empty($caseData['contact_id'])) {
+                  $contactId = reset($caseData['contact_id']);
+                } elseif (is_numeric($caseData['contact_id'])) {
+                  $contactId = $caseData['contact_id'];
+                }
+              }
+              
+              // Try client_id if contact_id didn't work
+              if (empty($contactId) && !empty($caseData['client_id'])) {
+                if (is_array($caseData['client_id']) && !empty($caseData['client_id'])) {
+                  $contactId = reset($caseData['client_id']);
+                } elseif (is_numeric($caseData['client_id'])) {
+                  $contactId = $caseData['client_id'];
+                }
+              }
+            }
+          } catch (Exception $e) {
+            $this->logAction('Error fetching case details for contact ID: ' . $e->getMessage(), $triggerData, \Psr\Log\LogLevel::ERROR);
           }
         }
       }
