@@ -19,6 +19,12 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       $this->logAction('Trigger data contact ID: ' . $triggerData->getContactId(), $triggerData, \Psr\Log\LogLevel::INFO);
       $this->logAction('Available entity data: ' . json_encode(array_keys($triggerData->getEntityData())), $triggerData, \Psr\Log\LogLevel::INFO);
       
+      // Log all entity data for debugging
+      $allEntityData = $triggerData->getEntityData();
+      foreach ($allEntityData as $entityType => $entityData) {
+        $this->logAction("Entity {$entityType} data: " . json_encode($entityData), $triggerData, \Psr\Log\LogLevel::INFO);
+      }
+      
       // Get the activity data - try different ways depending on trigger
       $activity = $triggerData->getEntityData('Activity');
       
@@ -296,16 +302,24 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
   private function calculateUnits($activity, $entryInfo) {
     try {
       if ($entryInfo['entry_type'] === 'deposit') {
-        // Hardcoded to use custom_309 for units allocation
-        $fieldName = 'custom_309';
-        $this->logAction("Using hardcoded field: " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
+        // Use custom_311 for Total Housing Units Allocated
+        $fieldName = 'custom_311';
+        $this->logAction("Using Total Housing Units Allocated field: " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
         
         // Debug: Show all available field names in activity data
         $availableFields = array_keys($activity);
         $this->logAction("Available fields in activity: " . implode(', ', $availableFields), NULL, \Psr\Log\LogLevel::INFO);
         
         $value = $activity[$fieldName] ?? 0;
-        $this->logAction("Field value for '{$fieldName}': " . $value, NULL, \Psr\Log\LogLevel::INFO);
+        
+        // Also try the -1 suffix version (for new records)
+        if ($value == 0) {
+          $fieldNameWithSuffix = $fieldName . '_-1';
+          $value = $activity[$fieldNameWithSuffix] ?? 0;
+          $this->logAction("Tried field with suffix '{$fieldNameWithSuffix}': " . $value, NULL, \Psr\Log\LogLevel::INFO);
+        }
+        
+        $this->logAction("Final field value for '{$fieldName}': " . $value, NULL, \Psr\Log\LogLevel::INFO);
         return $value;
       }
       elseif ($entryInfo['entry_type'] === 'delivery') {
@@ -315,16 +329,24 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         return $duration * $multiplier;
       }
       elseif ($entryInfo['entry_type'] === 'adjustment') {
-        // Hardcoded to use custom_309 for units allocation adjustments
-        $fieldName = 'custom_309';
-        $this->logAction("Using hardcoded field (adjustment): " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
+        // Use custom_311 for Total Housing Units Allocated adjustments
+        $fieldName = 'custom_311';
+        $this->logAction("Using Total Housing Units Allocated field (adjustment): " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
         
         // Debug: Show all available field names in activity data
         $availableFields = array_keys($activity);
         $this->logAction("Available fields in activity (adjustment): " . implode(', ', $availableFields), NULL, \Psr\Log\LogLevel::INFO);
         
         $value = $activity[$fieldName] ?? 0;
-        $this->logAction("Field value for '{$fieldName}' (adjustment): " . $value, NULL, \Psr\Log\LogLevel::INFO);
+        
+        // Also try the -1 suffix version (for new records)
+        if ($value == 0) {
+          $fieldNameWithSuffix = $fieldName . '_-1';
+          $value = $activity[$fieldNameWithSuffix] ?? 0;
+          $this->logAction("Tried field with suffix '{$fieldNameWithSuffix}' (adjustment): " . $value, NULL, \Psr\Log\LogLevel::INFO);
+        }
+        
+        $this->logAction("Final field value for '{$fieldName}' (adjustment): " . $value, NULL, \Psr\Log\LogLevel::INFO);
         return $value;
       }
       elseif ($entryInfo['entry_type'] === 'case_opened') {
