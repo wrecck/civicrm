@@ -16,6 +16,8 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
     try {
       // Debug: Log what we're getting
       $this->logAction('PostDelta triggered', $triggerData, \Psr\Log\LogLevel::INFO);
+      $this->logAction('Trigger data contact ID: ' . $triggerData->getContactId(), $triggerData, \Psr\Log\LogLevel::INFO);
+      $this->logAction('Available entity data: ' . json_encode(array_keys($triggerData->getEntityData())), $triggerData, \Psr\Log\LogLevel::INFO);
       
       // Get the activity data - try different ways depending on trigger
       $activity = $triggerData->getEntityData('Activity');
