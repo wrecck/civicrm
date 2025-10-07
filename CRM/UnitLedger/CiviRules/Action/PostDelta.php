@@ -396,9 +396,13 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         return $value;
       }
       elseif ($entryInfo['entry_type'] === 'case_opened') {
+        $fieldName = 'custom_309';
+        $this->logAction("Using Total Housing Units Allocated field (case opened): " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
         // For case opening, typically no units are allocated initially
         $this->logAction("Case opened - no units allocated initially", NULL, \Psr\Log\LogLevel::INFO);
         return 0;
+        $value = $activity[$fieldName] ?? 0;
+        return $value;
       }
 
       return NULL;
