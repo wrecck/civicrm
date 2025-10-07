@@ -229,6 +229,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         'Employment Units Delivered' => ['entry_type' => 'delivery', 'program' => 'Employment'],
         'Unit Allocation - Housing' => ['entry_type' => 'adjustment', 'program' => 'Housing'],
         'Unit Allocation - Employment' => ['entry_type' => 'adjustment', 'program' => 'Employment'],
+        'Open Case' => ['entry_type' => 'case_opened', 'program' => 'General'],
       ];
 
       return $entryMap[$activityType] ?? NULL;
@@ -279,6 +280,11 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         $value = $activity[$fieldName] ?? 0;
         $this->logAction("Field value for '{$fieldName}' (adjustment): " . $value, NULL, \Psr\Log\LogLevel::INFO);
         return $value;
+      }
+      elseif ($entryInfo['entry_type'] === 'case_opened') {
+        // For case opening, typically no units are allocated initially
+        $this->logAction("Case opened - no units allocated initially", NULL, \Psr\Log\LogLevel::INFO);
+        return 0;
       }
 
       return NULL;
