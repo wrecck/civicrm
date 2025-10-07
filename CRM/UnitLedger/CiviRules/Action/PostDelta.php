@@ -23,10 +23,11 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       $this->logAction('Contact ID type: ' . gettype($rawContactId), $triggerData, \Psr\Log\LogLevel::INFO);
       $this->logAction('Contact ID is numeric: ' . (is_numeric($rawContactId) ? 'YES' : 'NO'), $triggerData, \Psr\Log\LogLevel::INFO);
       
-      $this->logAction('Available entity data: ' . json_encode(array_keys($triggerData->getEntityData())), $triggerData, \Psr\Log\LogLevel::INFO);
+      // Get all entity data first
+      $allEntityData = $triggerData->getEntityData();
+      $this->logAction('Available entity data: ' . json_encode(array_keys($allEntityData)), $triggerData, \Psr\Log\LogLevel::INFO);
       
       // Log all entity data for debugging
-      $allEntityData = $triggerData->getEntityData();
       foreach ($allEntityData as $entityType => $entityData) {
         $this->logAction("Entity {$entityType} data: " . json_encode($entityData), $triggerData, \Psr\Log\LogLevel::INFO);
       }
