@@ -16,7 +16,13 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
     try {
       // Debug: Log what we're getting
       $this->logAction('PostDelta triggered', $triggerData, \Psr\Log\LogLevel::INFO);
-      $this->logAction('Trigger data contact ID: ' . $triggerData->getContactId(), $triggerData, \Psr\Log\LogLevel::INFO);
+      
+      // Check contact ID immediately
+      $rawContactId = $triggerData->getContactId();
+      $this->logAction('Raw contact ID from trigger: ' . var_export($rawContactId, true), $triggerData, \Psr\Log\LogLevel::INFO);
+      $this->logAction('Contact ID type: ' . gettype($rawContactId), $triggerData, \Psr\Log\LogLevel::INFO);
+      $this->logAction('Contact ID is numeric: ' . (is_numeric($rawContactId) ? 'YES' : 'NO'), $triggerData, \Psr\Log\LogLevel::INFO);
+      
       $this->logAction('Available entity data: ' . json_encode(array_keys($triggerData->getEntityData())), $triggerData, \Psr\Log\LogLevel::INFO);
       
       // Log all entity data for debugging
