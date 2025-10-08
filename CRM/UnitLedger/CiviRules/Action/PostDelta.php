@@ -414,9 +414,9 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
 
         $fieldName = 'custom_311';  //custom_312 is delivered custom_313 is remaining
         $value = $entityData[$fieldName] ?? 0;
-        $this->logAction("Using Total Housing Units Allocated field (case opened): " . $fieldName." value: " . $value, NULL, \Psr\Log\LogLevel::INFO);
+       // $this->logAction("Using Total Housing Units Allocated field (case opened): " . $fieldName." value: " . $value, NULL, \Psr\Log\LogLevel::INFO);
         // For case opening, typically no units are allocated initially
-        $this->logAction("Case opened - no units allocated initially", NULL, \Psr\Log\LogLevel::INFO);
+       // $this->logAction("Case opened - no units allocated initially", NULL, \Psr\Log\LogLevel::INFO);
         //return 0;
         
         return $value;
@@ -525,6 +525,32 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
    * @param array $data
    */
   private function insertLedgerEntry($data) {
+    // Check if entry already exists for same activity_id, case_id, and entry_type
+    $checkSql = "
+      SELECT COUNT(*) as count
+      FROM civicrm_unit_ledger 
+      WHERE activity_id = %1 AND case_id = %2 AND entry_type = %3
+    ";
+    
+    $checkParams = [
+      1 => [$data['activity_id'], 'Integer'],
+      2 => [$data['case_id'], 'Integer'],
+      3 => [$data['entry_type'], 'String'],
+    ];
+    
+    $result = CRM_Core_DAO::executeQuery($checkSql, $checkParams);
+    $existingCount = 0;
+    
+    if ($result->fetch()) {
+      $existingCount = (int) $result->count;
+    }
+    
+    // Skip insertion if duplicate exists
+    if ($existingCount > 0) {
+      $this->logAction("Skipping duplicate ledger entry - already exists for activity_id: {$data['activity_id']}, case_id: {$data['case_id']}, entry_type: {$data['entry_type']}", NULL, \Psr\Log\LogLevel::INFO);
+      return;
+    }
+    
     // Calculate running balance
     $balanceAfter = $this->calculateRunningBalance($data['case_id'], $data['program'], $data['units_delta']);
     // Add balance to data
