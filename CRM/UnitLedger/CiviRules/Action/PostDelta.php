@@ -327,6 +327,8 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         'Employment Units Delivered' => ['entry_type' => 'delivery', 'program' => 'Employment'],
         'Unit Allocation - Housing' => ['entry_type' => 'adjustment', 'program' => 'Housing'],
         'Unit Allocation - Employment' => ['entry_type' => 'adjustment', 'program' => 'Employment'],
+        'Units Delivered - Housing' => ['entry_type' => 'delivery', 'program' => 'Housing'],
+        'Units Delivered - Employment' => ['entry_type' => 'delivery', 'program' => 'Employment'],
         'Open Case' => ['entry_type' => 'case_opened', 'program' => 'General'],
       ];
 
