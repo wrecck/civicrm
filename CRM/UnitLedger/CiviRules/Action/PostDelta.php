@@ -527,7 +527,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
   private function insertLedgerEntry($data) {
     // Check if entry already exists for same activity_id, case_id, and entry_type
     $checkSql = "
-      SELECT COUNT(*) as count
+      SELECT id, units_delta
       FROM civicrm_unit_ledger 
       WHERE activity_id = %1 AND case_id = %2 AND entry_type = %3
     ";
@@ -539,45 +539,107 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
     ];
     
     $result = CRM_Core_DAO::executeQuery($checkSql, $checkParams);
-    $existingCount = 0;
+    $existingEntry = null;
     
     if ($result->fetch()) {
-      $existingCount = (int) $result->count;
+      $existingEntry = [
+        'id' => $result->id,
+        'old_units_delta' => $result->units_delta
+      ];
     }
     
-    // Skip insertion if duplicate exists
-    if ($existingCount > 0) {
-      $this->logAction("Skipping duplicate ledger entry - already exists for activity_id: {$data['activity_id']}, case_id: {$data['case_id']}, entry_type: {$data['entry_type']}", NULL, \Psr\Log\LogLevel::INFO);
-      return;
-    }
-    
-    // Calculate running balance
+    // Calculate new balance
     $balanceAfter = $this->calculateRunningBalance($data['case_id'], $data['program'], $data['units_delta']);
-    // Add balance to data
     $data['balance_after'] = $balanceAfter;
     
-    // Insert into ledger table
-    $sql = "
-      INSERT INTO civicrm_unit_ledger 
-      (activity_id, case_id, contact_id, program, entry_type, units_delta, balance_after, operation, description, created_date, created_by)
-      VALUES (%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11)
+    if ($existingEntry) {
+      // UPDATE existing entry
+      $updateSql = "
+        UPDATE civicrm_unit_ledger 
+        SET units_delta = %1, balance_after = %2, modified_date = NOW()
+        WHERE id = %3
+      ";
+      
+      $updateParams = [
+        1 => [$data['units_delta'], 'Integer'],
+        2 => [$data['balance_after'], 'Integer'],
+        3 => [$existingEntry['id'], 'Integer'],
+      ];
+      
+      CRM_Core_DAO::executeQuery($updateSql, $updateParams);
+      $this->logAction("Updated existing ledger entry ID {$existingEntry['id']} - units_delta: {$existingEntry['old_units_delta']} → {$data['units_delta']}", NULL, \Psr\Log\LogLevel::INFO);
+      
+    } else {
+      // INSERT new entry
+      $sql = "
+        INSERT INTO civicrm_unit_ledger 
+        (activity_id, case_id, contact_id, program, entry_type, units_delta, balance_after, operation, description, created_date, created_by)
+        VALUES (%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11)
+      ";
+      
+      $params = [
+        1 => [$data['activity_id'], 'Integer'],
+        2 => [$data['case_id'], 'Integer'],
+        3 => [$data['contact_id'], 'Integer'],
+        4 => [$data['program'], 'String'],
+        5 => [$data['entry_type'], 'String'],
+        6 => [$data['units_delta'], 'Integer'],
+        7 => [$data['balance_after'], 'Integer'],
+        8 => [$data['operation'], 'String'],
+        9 => [$data['description'] ?? '', 'String'],
+        10 => [$data['created_date'], 'String'],
+        11 => [$data['created_by'], 'Integer'],
+      ];
+      
+      CRM_Core_DAO::executeQuery($sql, $params);
+      $this->logAction("Created new ledger entry", NULL, \Psr\Log\LogLevel::INFO);
+    }
+  }
+
+  /**
+   * Update existing ledger entry
+   *
+   * @param int $activityId
+   * @param int $newUnitsDelta
+   */
+  private function updateLedgerEntry($activityId, $newUnitsDelta) {
+    // Get existing entry
+    $getSql = "
+      SELECT id, case_id, program, units_delta
+      FROM civicrm_unit_ledger 
+      WHERE activity_id = %1
     ";
     
-    $params = [
-      1 => [$data['activity_id'], 'Integer'],
-      2 => [$data['case_id'], 'Integer'],
-      3 => [$data['contact_id'], 'Integer'],
-      4 => [$data['program'], 'String'],
-      5 => [$data['entry_type'], 'String'],
-      6 => [$data['units_delta'], 'Integer'],
-      7 => [$data['balance_after'], 'Integer'],
-      8 => [$data['operation'], 'String'],
-      9 => [$data['description'] ?? '', 'String'],
-      10 => [$data['created_date'], 'String'],
-      11 => [$data['created_by'], 'Integer'],
-    ];
+    $result = CRM_Core_DAO::executeQuery($getSql, [1 => [$activityId, 'Integer']]);
     
-    CRM_Core_DAO::executeQuery($sql, $params);
+    if ($result->fetch()) {
+      $entryId = $result->id;
+      $caseId = $result->case_id;
+      $program = $result->program;
+      $oldUnitsDelta = $result->units_delta;
+      
+      // Calculate new balance
+      $balanceAfter = $this->calculateRunningBalance($caseId, $program, $newUnitsDelta);
+      
+      // Update the entry
+      $updateSql = "
+        UPDATE civicrm_unit_ledger 
+        SET units_delta = %1, balance_after = %2, modified_date = NOW()
+        WHERE id = %3
+      ";
+      
+      $updateParams = [
+        1 => [$newUnitsDelta, 'Integer'],
+        2 => [$balanceAfter, 'Integer'],
+        3 => [$entryId, 'Integer'],
+      ];
+      
+      CRM_Core_DAO::executeQuery($updateSql, $updateParams);
+      $this->logAction("Updated ledger entry ID {$entryId} - units_delta: {$oldUnitsDelta} → {$newUnitsDelta}, balance_after: {$balanceAfter}", NULL, \Psr\Log\LogLevel::INFO);
+      
+    } else {
+      $this->logAction("No ledger entry found for activity_id: {$activityId}", NULL, \Psr\Log\LogLevel::WARNING);
+    }
   }
 
   /**
