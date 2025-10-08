@@ -230,7 +230,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       // Calculate units based on entry type
       $this->logAction('Calculating units for entry type: ' . $entryInfo['entry_type'] . ', program: ' . $entryInfo['program'], $triggerData, \Psr\Log\LogLevel::INFO);
       $this->logAction('EntryInfo data: ' . json_encode($entryInfo), $triggerData, \Psr\Log\LogLevel::INFO);
-      $units = $this->calculateUnits($activity, $entryInfo);
+      $units = $this->calculateUnits($activity, $entryInfo,$entityData);
       $this->logAction('Calculated units: ' . $units, $triggerData, \Psr\Log\LogLevel::INFO);
       if ($units === NULL) {
         $this->logAction('Could not calculate units for activity', $triggerData, \Psr\Log\LogLevel::WARNING);
@@ -345,7 +345,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
    * @param array $entryInfo
    * @return int|null
    */
-  private function calculateUnits($activity, $entryInfo) {
+  private function calculateUnits($activity, $entryInfo,$entityData) {
     try {
             
     // Debug: Show all available field names in activity data
@@ -406,7 +406,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         $this->logAction("Using Total Housing Units Allocated field (case opened): " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
         // For case opening, typically no units are allocated initially
         $this->logAction("Case opened - no units allocated initially", NULL, \Psr\Log\LogLevel::INFO);
-        return 0;
+        //return 0;
         $value = $activity[$fieldName] ?? 0;
         return $value;
       }
