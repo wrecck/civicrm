@@ -402,6 +402,16 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         return $value;
       }
       elseif ($entryInfo['entry_type'] === 'case_opened') {
+        $entityTypes = ['Case', 'Activity', 'Contact'];
+
+        foreach ($entityTypes as $entityType) {   
+            $entityData = $triggerData->getEntityData($entityType);
+            if (!empty($entityData)) {
+              $allEntityData[$entityType] = $entityData;
+              $this->logAction("Entity {$entityType} data in case_opened: " . json_encode($entityData), $triggerData, \Psr\Log\LogLevel::INFO);
+            }    
+        }
+
         $fieldName = 'custom_311';  //custom_312 is delivered custom_313 is remaining
         $this->logAction("Using Total Housing Units Allocated field (case opened): " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
         // For case opening, typically no units are allocated initially
