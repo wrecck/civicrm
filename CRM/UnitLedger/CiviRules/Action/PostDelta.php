@@ -380,9 +380,10 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       elseif ($entryInfo['entry_type'] === 'delivery') { // 
         // For deliveries, convert duration to units
         $fieldName = 'custom_307';
+        $value = $activity[$fieldName] ?? 0;    
         $this->logAction("Using Total Housing Units delivery field: " . $fieldName . " value: " . $value, NULL, \Psr\Log\LogLevel::INFO);
          // Debug: Show all available field names in activity data
-        $value = $activity[$fieldName] ?? 0;    
+
 
         return $value;
       }
