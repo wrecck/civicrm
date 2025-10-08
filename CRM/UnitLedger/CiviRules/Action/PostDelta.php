@@ -330,6 +330,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         'Units Delivered - Housing' => ['entry_type' => 'delivery', 'program' => 'Housing'],
         'Units Delivered - Employment' => ['entry_type' => 'delivery', 'program' => 'Employment'],
         'Open Case' => ['entry_type' => 'case_opened', 'program' => 'General'],
+        'change custom data' => ['entry_type' => 'chang_custom_data', 'program' => 'General'],
       ];
 
       return $entryMap[$activityType] ?? NULL;
