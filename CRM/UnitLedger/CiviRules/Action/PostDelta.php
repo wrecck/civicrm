@@ -361,9 +361,9 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       }
 
       if ($entryInfo['entry_type'] === 'deposit') {
-        // Use custom_311 for Total Housing Units Allocated
+        // Use custom_311 for Total  Units Allocated
         $fieldName = 'custom_311';
-        $this->logAction("Using Total Housing Units Allocated field: " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
+        $this->logAction("Using Total ".$entryInfo['program']." Units Allocated field: " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
         
         $value = $activity[$fieldName] ?? 0;
         
@@ -381,7 +381,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         // For deliveries, convert duration to units
         $fieldName = 'custom_307';
         $value = $activity[$fieldName] ?? 0;    
-        $this->logAction("Using Total Housing Units delivery field: " . $fieldName . " value: " . $value, NULL, \Psr\Log\LogLevel::INFO);
+        $this->logAction("Using Total ".$entryInfo['program']." Units delivery field: " . $fieldName . " value: " . $value, NULL, \Psr\Log\LogLevel::INFO);
          // Debug: Show all available field names in activity data
 
 
@@ -390,7 +390,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       elseif ($entryInfo['entry_type'] === 'adjustment') {
         // Use custom_311 for Total Housing Units Allocated adjustments
         $fieldName = 'custom_309';
-        $this->logAction("Using Total Housing Units Allocated field (adjustment): " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
+        $this->logAction("Using Total ".$entryInfo['program']." Units Allocated field (adjustment): " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
          // Debug: Show all available field names in activity data
         $value = $activity[$fieldName] ?? 0;        
         // Also try the -1 suffix version (for new records)
