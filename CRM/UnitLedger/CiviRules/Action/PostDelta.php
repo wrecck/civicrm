@@ -513,6 +513,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       'operation' => $operation,
       'created_date' => date('Y-m-d H:i:s'),
       'created_by' => CRM_Core_Session::getLoggedInContactID(),
+      'modified_date' => "0000-00-00 00:00:00",
     ];
     $this->logAction("Posting ledger data: " . json_encode($ledgerData), $triggerData, \Psr\Log\LogLevel::INFO);
     // Store in a simple custom table for now
@@ -575,8 +576,8 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       // INSERT new entry
       $sql = "
         INSERT INTO civicrm_unit_ledger 
-        (activity_id, case_id, contact_id, program, entry_type, units_delta, balance_after, operation, description, created_date, created_by)
-        VALUES (%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11)
+        (activity_id, case_id, contact_id, program, entry_type, units_delta, balance_after, operation, description, created_date, created_by, modified_date)
+        VALUES (%1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12)
       ";
       
       $params = [
@@ -591,6 +592,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         9 => [$data['description'] ?? '', 'String'],
         10 => [$data['created_date'], 'String'],
         11 => [$data['created_by'], 'Integer'],
+        12 => [$data['modified_date'], 'String'],
       ];
       
       CRM_Core_DAO::executeQuery($sql, $params);
