@@ -402,7 +402,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         return $value;
       }
       elseif ($entryInfo['entry_type'] === 'case_opened') {
-        $entityTypes = ['Case', 'Activity', 'Contact'];
+        $entityTypes = ['Case'];
 
         foreach ($entityTypes as $entityType) {   
             $entityData = $triggerData->getEntityData($entityType);
