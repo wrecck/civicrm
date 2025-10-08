@@ -230,7 +230,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       // Calculate units based on entry type
       $this->logAction('Calculating units for entry type: ' . $entryInfo['entry_type'] . ', program: ' . $entryInfo['program'], $triggerData, \Psr\Log\LogLevel::INFO);
       $this->logAction('EntryInfo data: ' . json_encode($entryInfo), $triggerData, \Psr\Log\LogLevel::INFO);
-      $units = $this->calculateUnits($activity, $entryInfo,$entityData);
+      $units = $this->calculateUnits($activity, $entryInfo,$triggerData);
       $this->logAction('Calculated units: ' . $units, $triggerData, \Psr\Log\LogLevel::INFO);
       if ($units === NULL) {
         $this->logAction('Could not calculate units for activity', $triggerData, \Psr\Log\LogLevel::WARNING);
@@ -345,7 +345,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
    * @param array $entryInfo
    * @return int|null
    */
-  private function calculateUnits($activity, $entryInfo,$entityData) {
+  private function calculateUnits($activity, $entryInfo,$triggerData) {
     try {
             
     // Debug: Show all available field names in activity data
