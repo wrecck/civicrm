@@ -377,22 +377,21 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         $this->logAction("Final field value for '{$fieldName}': " . $value, NULL, \Psr\Log\LogLevel::INFO);
         return $value;
       }
-      elseif ($entryInfo['entry_type'] === 'delivery') {
+      elseif ($entryInfo['entry_type'] === 'delivery') { // 
         // For deliveries, convert duration to units
-        $duration = $activity['duration'] ?? 0;
-        $multiplier = ($entryInfo['program'] === 'Housing') ? 1 : 4;
-        return $duration * $multiplier;
+        $fieldName = 'custom_307';
+        $this->logAction("Using Total Housing Units delivery field: " . $fieldName . " value: " . $value, NULL, \Psr\Log\LogLevel::INFO);
+         // Debug: Show all available field names in activity data
+        $value = $activity[$fieldName] ?? 0;    
+
+        return $value;
       }
       elseif ($entryInfo['entry_type'] === 'adjustment') {
         // Use custom_311 for Total Housing Units Allocated adjustments
         $fieldName = 'custom_309';
         $this->logAction("Using Total Housing Units Allocated field (adjustment): " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
-        
-        // Debug: Show all available field names in activity data
-
-        
-        $value = $activity[$fieldName] ?? 0;
-        
+         // Debug: Show all available field names in activity data
+        $value = $activity[$fieldName] ?? 0;        
         // Also try the -1 suffix version (for new records)
         if ($value == 0) {
           $fieldNameWithSuffix = $fieldName . '_-1';
