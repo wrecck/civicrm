@@ -60,6 +60,7 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 			$html .= '</thead>';
 			$html .= '<tbody>';
 			
+			$i = 0;
 			foreach ($ledgerData as $row) {
 				$class = (++$i % 2 == 0) ? 'even-row' : 'odd-row';
 				$html .= '<tr class="' . $class . '">';
