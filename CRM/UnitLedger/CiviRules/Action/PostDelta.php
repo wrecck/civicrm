@@ -578,7 +578,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       ";
       $updateParamsDelivery = [
         1 => [$totalHousingUnitsDelivered + $data['units_delta'], 'Integer'],
-        2 => [$totalHousingUnitsRemaining - ($data['units_delta']-$totalHousingUnitsDelivered), 'Integer'],
+        2 => [$totalHousingUnitsAllocated - ($data['units_delta']+$totalHousingUnitsDelivered), 'Integer'],
         3 => [$data['case_id'], 'Integer'],
       ];
       CRM_Core_DAO::executeQuery($updateSqlDelivery, $updateParamsDelivery);
