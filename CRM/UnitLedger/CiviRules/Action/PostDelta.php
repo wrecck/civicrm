@@ -330,7 +330,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         'Units Delivered - Housing' => ['entry_type' => 'delivery', 'program' => 'Housing'],
         'Units Delivered - Employment' => ['entry_type' => 'delivery', 'program' => 'Employment'],
         'Open Case' => ['entry_type' => 'case_opened', 'program' => 'General'],
-        'Change Custom Data' => ['entry_type' => 'chang_custom_data', 'program' => 'General'],
+        'Change Custom Data' => ['entry_type' => 'change_custom_data', 'program' => 'General'],
       ];
 
       return $entryMap[$activityType] ?? NULL;
@@ -422,6 +422,12 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
        // $this->logAction("Case opened - no units allocated initially", NULL, \Psr\Log\LogLevel::INFO);
         //return 0;
         
+        return $value;
+      }
+      elseif($entryInfo['entry_type'] === 'change_custom_data') {
+        $fieldName = 'custom_311_43';
+        $value = $activity[$fieldName] ?? 0;
+        $this->logAction("Using Total ".$entryInfo['program']." Units Allocated field (change custom data): " . $fieldName . " value: " . $value, NULL, \Psr\Log\LogLevel::INFO);
         return $value;
       }
 
@@ -529,6 +535,22 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
    * @param array $data
    */
   private function insertLedgerEntry($data) {
+
+    #### INSERT THE UPDATE HERE civicrm_value_housing_units_41
+    if($data['entry_type'] === 'adjustment') {
+      $updateSqlAdjustment = "
+        UPDATE civicrm_value_housing_units_41
+        SET total_housing_units_allocated_311 = %1
+        WHERE entity_id = %2
+      ";
+      $updateParamsAdjustment = [
+        1 => [$data['units_delta'], 'Integer'],
+        2 => [$data['case_id'], 'Integer'],
+      ];
+      CRM_Core_DAO::executeQuery($updateSqlAdjustment, $updateParamsAdjustment);
+      $this->logAction("Updated  civicrm_value_housing_units_41 total housing units allocated for case {$data['case_id']} by {$data['units_delta']}", NULL, \Psr\Log\LogLevel::INFO);
+    }
+    
     // Check if entry already exists for same activity_id, case_id, and entry_type
     $checkSql = "
       SELECT id, units_delta
