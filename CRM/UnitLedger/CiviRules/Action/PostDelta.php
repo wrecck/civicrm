@@ -536,6 +536,24 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
    */
   private function insertLedgerEntry($data) {
 
+    ##Check civicrm_value_housing_units_41 to extract total_housing_units_allocated_311, total_housing_units_delivered_312, total_housing_units_remaining_313
+    $checkSql = "
+      SELECT total_housing_units_allocated_311, total_housing_units_delivered_312, total_housing_units_remaining_313
+      FROM civicrm_value_housing_units_41
+      WHERE entity_id = %1
+    ";
+    $checkParams = [1 => [$data['case_id'], 'Integer']];
+    $result = CRM_Core_DAO::executeQuery($checkSql, $checkParams);
+    $totalHousingUnitsAllocated = 0;
+    $totalHousingUnitsDelivered = 0;
+    $totalHousingUnitsRemaining = 0;
+    if($result->fetch()) {
+      $totalHousingUnitsAllocated = $result->total_housing_units_allocated_311;
+      $totalHousingUnitsDelivered = $result->total_housing_units_delivered_312;
+      $totalHousingUnitsRemaining = $result->total_housing_units_remaining_313;
+    }
+
+
     #### INSERT THE UPDATE HERE civicrm_value_housing_units_41
     if($data['entry_type'] === 'adjustment') {
       $updateSqlAdjustment = "
@@ -549,6 +567,22 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       ];
       CRM_Core_DAO::executeQuery($updateSqlAdjustment, $updateParamsAdjustment);
       $this->logAction("Updated  civicrm_value_housing_units_41 total housing units allocated for case {$data['case_id']} by {$data['units_delta']}", NULL, \Psr\Log\LogLevel::INFO);
+    }
+
+    ##Update civicrm_value_housing_units_41 for delivery
+    if($data['entry_type'] === 'delivery') {
+      $updateSqlDelivery = "
+        UPDATE civicrm_value_housing_units_41
+        SET total_housing_units_delivered_312 = %1, total_housing_units_remaining_313 = %2
+        WHERE entity_id = %3
+      ";
+      $updateParamsDelivery = [
+        1 => [$totalHousingUnitsDelivered + $data['units_delta'], 'Integer'],
+        2 => [$totalHousingUnitsRemaining - ($data['units_delta']-$totalHousingUnitsDelivered), 'Integer'],
+        3 => [$data['case_id'], 'Integer'],
+      ];
+      CRM_Core_DAO::executeQuery($updateSqlDelivery, $updateParamsDelivery);
+      $this->logAction("Updated  civicrm_value_housing_units_41 total housing units delivered for case {$data['case_id']} by {$data['units_delta']}", NULL, \Psr\Log\LogLevel::INFO);
     }
     
     // Check if entry already exists for same activity_id, case_id, and entry_type
