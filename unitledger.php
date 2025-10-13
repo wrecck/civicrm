@@ -139,3 +139,19 @@ function unitledger_civicrm_alterMenu(&$items) {
 		'is_public' => 0,
 	];
 }
+
+/**
+ * Implements hook_civicrm_navigationMenu().
+ * Adds Unit Ledger to the main navigation menu.
+ */
+function unitledger_civicrm_navigationMenu(&$menu) {
+	_unitledger_civix_insert_navigation_menu($menu, 'Administer', [
+		'label' => E::ts('Unit Ledger'),
+		'name' => 'unit_ledger',
+		'url' => 'civicrm/unit-ledger',
+		'permission' => 'access CiviCRM',
+		'operator' => 'OR',
+		'separator' => 0,
+		'active' => 1,
+	]);
+}

@@ -15,13 +15,86 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 
 		$ledgerData = $this->getLedgerData($caseId, $contactId, $program, $entryType);
 
-		$this->assign('ledgerData', $ledgerData);
-		$this->assign('caseId', $caseId);
-		$this->assign('contactId', $contactId);
-		$this->assign('program', $program);
-		$this->assign('entryType', $entryType);
+		// Generate HTML directly instead of using Smarty template
+		$html = $this->generateHTML($ledgerData, $caseId, $contactId, $program, $entryType);
+		
+		// Output the HTML
+		echo $html;
+		return;
+	}
 
-		return parent::run();
+	/**
+	 * Generate HTML for the ledger view
+	 */
+	private function generateHTML($ledgerData, $caseId, $contactId, $program, $entryType) {
+		$html = '<div class="crm-container">';
+		$html .= '<div class="crm-section">';
+		$html .= '<h2>' . E::ts('Unit Ledger') . '</h2>';
+		
+		// Filter summary
+		$filters = [];
+		if ($caseId) $filters[] = 'Case: ' . $caseId;
+		if ($contactId) $filters[] = 'Contact: ' . $contactId;
+		if ($program) $filters[] = 'Program: ' . $program;
+		if ($entryType) $filters[] = 'Entry Type: ' . $entryType;
+		
+		if (!empty($filters)) {
+			$html .= '<div class="messages status">' . implode(' | ', $filters) . '</div>';
+		}
+		
+		if (!empty($ledgerData)) {
+			$html .= '<table class="selector">';
+			$html .= '<thead>';
+			$html .= '<tr>';
+			$html .= '<th>' . E::ts('Date') . '</th>';
+			$html .= '<th>' . E::ts('Activity') . '</th>';
+			$html .= '<th>' . E::ts('Activity Type') . '</th>';
+			$html .= '<th>' . E::ts('Contact') . '</th>';
+			$html .= '<th>' . E::ts('Program') . '</th>';
+			$html .= '<th>' . E::ts('Entry Type') . '</th>';
+			$html .= '<th>' . E::ts('Units Δ') . '</th>';
+			$html .= '<th>' . E::ts('Balance After') . '</th>';
+			$html .= '<th>' . E::ts('Operation') . '</th>';
+			$html .= '<th>' . E::ts('Description') . '</th>';
+			$html .= '</tr>';
+			$html .= '</thead>';
+			$html .= '<tbody>';
+			
+			foreach ($ledgerData as $row) {
+				$class = (++$i % 2 == 0) ? 'even-row' : 'odd-row';
+				$html .= '<tr class="' . $class . '">';
+				$html .= '<td>' . CRM_Utils_Date::customFormat($row['created_date']) . '</td>';
+				$html .= '<td>' . ($row['activity_subject'] ?: '-') . '</td>';
+				$html .= '<td>' . ($row['activity_type_name'] ?: '-') . '</td>';
+				$html .= '<td>' . ($row['contact_name'] ?: $row['contact_id']) . '</td>';
+				$html .= '<td>' . $row['program'] . '</td>';
+				$html .= '<td>' . $row['entry_type'] . '</td>';
+				
+				$deltaClass = '';
+				if ($row['units_delta'] > 0) $deltaClass = 'status-ok';
+				elseif ($row['units_delta'] < 0) $deltaClass = 'status-warning';
+				
+				$html .= '<td class="' . $deltaClass . '">';
+				if ($row['units_delta'] > 0) $html .= '+';
+				$html .= $row['units_delta'] . '</td>';
+				$html .= '<td>' . $row['balance_after'] . '</td>';
+				$html .= '<td>' . $row['operation'] . '</td>';
+				$html .= '<td>' . ($row['description'] ?: '') . '</td>';
+				$html .= '</tr>';
+			}
+			
+			$html .= '</tbody>';
+			$html .= '</table>';
+		} else {
+			$html .= '<div class="status">';
+			$html .= '<p>' . E::ts('No ledger entries found.') . '</p>';
+			$html .= '</div>';
+		}
+		
+		$html .= '</div>';
+		$html .= '</div>';
+		
+		return $html;
 	}
 
 	/**
