@@ -57,15 +57,25 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 			
 			$i = 0;
 			foreach ($caseData as $row) {
+				if($row['case_type_title'] == 'FCS Housing	') {
+					$total_units_allocated = $row['total_housing_units_allocated'];
+					$total_units_delivered = $row['total_housing_units_delivered'];
+					$total_units_remaining = $row['total_housing_units_remaining'];
+				} else if($row['case_type_title'] == 'FCS Employment') {
+					$total_units_allocated = $row['total_employment_units_allocated'];
+					$total_units_delivered = $row['total_employment_units_delivered'];
+					$total_units_remaining = $row['total_employment_units_remaining'];
+				}
+
 				$class = (++$i % 2 == 0) ? 'even-row' : 'odd-row';
 				$html .= '<tr class="' . $class . '">';
 				$html .= '<td>' . $row['id'] . '</td>';
 				$html .= '<td>' . $row['display_name'] . '</td>';
 				$html .= '<td>' . ($row['case_type_title'] ?: '-') . '</td>';
 				$html .= '<td>' . ($row['case_status_label'] ?: '-') . '</td>';
-				$html .= '<td>' . ($row['total_housing_units_allocated'] ?: '-') . '</td>';
-				$html .= '<td>' . ($row['total_housing_units_delivered'] ?: '-') . '</td>';
-				$html .= '<td>' . ($row['total_housing_units_remaining'] ?: '-') . '</td>';
+				$html .= '<td>' . ($total_units_allocated ?: '-') . '</td>';
+				$html .= '<td>' . ($total_units_delivered ?: '-') . '</td>';
+				$html .= '<td>' . ($total_units_remaining ?: '-') . '</td>';
 				$html .= '<td>' . CRM_Utils_Date::customFormat($row['created_date']) . '</td>';
 				$html .= '<td>' . CRM_Utils_Date::customFormat($row['modified_date']) . '</td>';
 				$html .= '</tr>';
@@ -102,13 +112,17 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 				c.display_name AS display_name,
 				huu.total_housing_units_allocated_311 AS total_housing_units_allocated,
 				huu.total_housing_units_delivered_312 AS total_housing_units_delivered,
-				huu.total_housing_units_remaining_313 AS total_housing_units_remaining
+				huu.total_housing_units_remaining_313 AS total_housing_units_remaining,
+				euu.total_employment_units_allocated_314 AS total_employment_units_allocated,
+				euu.total_employment_units_delivered_315 AS total_employment_units_delivered,
+				euu.total_employment_units_remaining_316 AS total_employment_units_remaining
 			FROM civicrm_case cs
 			LEFT JOIN civicrm_case_type ct ON ct.id = cs.case_type_id
 			LEFT JOIN civicrm_option_value ov ON ov.value = cs.status_id AND ov.option_group_id = 26
 			LEFT JOIN  civicrm_case_contact ccc ON ccc.case_id = cs.id
 			LEFT JOIN  civicrm_contact c ON c.id = ccc.contact_id
-			LEFT JOIN  civicrm_value_housing_units_41 huu ON huu.entity_id = cs.id
+			LEFT JOIN  civicrm_value_housing_units_41 huu ON huu.entity_id = cs.id,
+			LEFT JOIN  civicrm_value_employment_un_42 euu ON euu.entity_id = cs.id
 			WHERE cs.is_deleted = 0
 		";
 
