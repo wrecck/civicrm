@@ -43,6 +43,7 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 			$html .= '<thead>';
 			$html .= '<tr>';
 			$html .= '<th>' . E::ts('Case ID') . '</th>';
+			$html .= '<th>' . E::ts('Contact') . '</th>';
 			$html .= '<th>' . E::ts('Subject') . '</th>';
 			$html .= '<th>' . E::ts('Case Type') . '</th>';
 			$html .= '<th>' . E::ts('Status') . '</th>';
