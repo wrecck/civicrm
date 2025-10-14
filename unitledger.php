@@ -72,32 +72,21 @@ function unitledger_get_case_ledger_data($caseId) {
 
 	$sql = "
 		SELECT 
-			ul.id,
-			ul.activity_id,
-			ul.case_id,
-			ul.contact_id,
-			ul.program,
-			ul.entry_type,
-			ul.units_delta,
-			ul.balance_after,
-			ul.operation,
-			ul.description,
-			ul.created_date,
-			ul.created_by,
-			a.subject AS activity_subject,
-			a.activity_type_id,
-			ov.label AS activity_type_name,
-			c.display_name AS contact_name
-		FROM civicrm_unit_ledger ul
-		LEFT JOIN civicrm_activity a ON a.id = ul.activity_id
+			cs.id,
+			cs.case_type_id,
+			cs.subject,
+			cs.created_date,
+			cs.modified_date,
+			cs.status_id,
+			ct.title AS case_type_title,
+			ov.label AS case_status_label
+		FROM civicrm_case cs
+		LEFT JOIN civicrm_case_type ct ON ct.id = cs.case_type_id
 		LEFT JOIN civicrm_option_value ov 
-			ON ov.value = a.activity_type_id 
-			AND ov.option_group_id = (
-				SELECT id FROM civicrm_option_group WHERE name = 'activity_type' LIMIT 1
-			)
-		LEFT JOIN civicrm_contact c ON c.id = ul.contact_id
-		WHERE ul.case_id = %1
-		ORDER BY ul.created_date DESC, ul.id DESC
+			ON ov.value = cs.status_id 
+			AND ov.option_group_id = 26
+		WHERE cs.id = %1
+		ORDER BY cs.created_date DESC
 	";
 
 	$params = [
@@ -109,19 +98,13 @@ function unitledger_get_case_ledger_data($caseId) {
 	while ($dao->fetch()) {
 		$rows[] = [
 			'id' => (int) $dao->id,
-			'activity_id' => $dao->activity_id,
-			'activity_subject' => $dao->activity_subject,
-			'activity_type_name' => $dao->activity_type_name,
-			'contact_id' => $dao->contact_id,
-			'contact_name' => $dao->contact_name,
-			'program' => $dao->program,
-			'entry_type' => $dao->entry_type,
-			'units_delta' => (int) $dao->units_delta,
-			'balance_after' => (int) $dao->balance_after,
-			'operation' => $dao->operation,
-			'description' => $dao->description,
+			'case_type_id' => $dao->case_type_id,
+			'subject' => $dao->subject,
 			'created_date' => $dao->created_date,
-			'created_by' => $dao->created_by,
+			'modified_date' => $dao->modified_date,
+			'status_id' => $dao->status_id,
+			'case_type_title' => $dao->case_type_title,
+			'case_status_label' => $dao->case_status_label,
 		];
 	}
 
