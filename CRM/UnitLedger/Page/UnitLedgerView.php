@@ -57,6 +57,7 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 				$class = (++$i % 2 == 0) ? 'even-row' : 'odd-row';
 				$html .= '<tr class="' . $class . '">';
 				$html .= '<td>' . $row['id'] . '</td>';
+				$html .= '<td>' . $row['display_name'] . '</td>';
 				$html .= '<td>' . ($row['subject'] ?: '-') . '</td>';
 				$html .= '<td>' . ($row['case_type_title'] ?: '-') . '</td>';
 				$html .= '<td>' . ($row['case_status_label'] ?: '-') . '</td>';
@@ -92,12 +93,13 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 				cs.modified_date,
 				cs.status_id,
 				ct.title AS case_type_title,
-				ov.label AS case_status_label
+				ov.label AS case_status_label,
+				c.display_name AS display_name
 			FROM civicrm_case cs
 			LEFT JOIN civicrm_case_type ct ON ct.id = cs.case_type_id
-			LEFT JOIN civicrm_option_value ov 
-				ON ov.value = cs.status_id 
-				AND ov.option_group_id = 26
+			LEFT JOIN civicrm_option_value ov ON ov.value = cs.status_id AND ov.option_group_id = 26
+			LEFT JOIN  civicrm_case_contact ccc ON ccc.id = cs.id
+			LEFT JOIN  civicrm_contact c ON c.id = ccc.contact_id
 			WHERE is_deleted = 0
 		";
 
@@ -128,6 +130,7 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 				'status_id' => $dao->status_id,
 				'case_type_title' => $dao->case_type_title,
 				'case_status_label' => $dao->case_status_label,
+				'display_name' => $dao->display_name,
 			];
 		}
 		return $rows;
