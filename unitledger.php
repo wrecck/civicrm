@@ -116,7 +116,7 @@ function unitledger_get_case_ledger_data($caseId) {
  * Registers a route for the standalone Unit Ledger page.
  */
 function unitledger_civicrm_alterMenu(&$items) {
-	$items['civicrm/unit-ledger'] = [
+	$items['civicrm/unit-ledger2'] = [
 		'page_callback' => 'CRM_UnitLedger_Page_UnitLedgerView',
 		'access_arguments' => ['access CiviCRM'],
 		'is_public' => 0,
