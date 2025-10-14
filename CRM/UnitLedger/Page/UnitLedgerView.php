@@ -138,8 +138,11 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 				'modified_date' => $dao->modified_date,
 				'status_id' => $dao->status_id,
 				'case_type_title' => $dao->case_type_title,
-				'case_status_label' => $dao->case_status_label,
+				'case_status_label' => $dao->case_status_label,S
 				'display_name' => $dao->display_name,
+				'total_housing_units_allocated' => $dao->total_housing_units_allocated,
+				'total_housing_units_delivered' => $dao->total_housing_units_delivered,
+				'total_housing_units_remaining' => $dao->total_housing_units_remaining,
 			];
 		}
 		return $rows;
