@@ -27,7 +27,7 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 	private function generateHTML($caseData, $caseId, $contactId) {
 		$html = '<div class="crm-container">';
 		$html .= '<div class="crm-section">';
-		$html .= '<h2>' . E::ts('Unit Ledger - Cases') . '</h2>';
+		//$html .= '<h2>' . E::ts('Unit Ledger - Cases') . '</h2>';
 		
 		// Filter summary
 		$filters = [];
