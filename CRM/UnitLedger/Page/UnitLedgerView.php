@@ -98,9 +98,9 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 			FROM civicrm_case cs
 			LEFT JOIN civicrm_case_type ct ON ct.id = cs.case_type_id
 			LEFT JOIN civicrm_option_value ov ON ov.value = cs.status_id AND ov.option_group_id = 26
-			LEFT JOIN  civicrm_case_contact ccc ON ccc.id = cs.id
+			LEFT JOIN  civicrm_case_contact ccc ON ccc.case_id = cs.id
 			LEFT JOIN  civicrm_contact c ON c.id = ccc.contact_id
-			WHERE is_deleted = 0
+			WHERE cs.is_deleted = 0
 		";
 
 		$params = [];
