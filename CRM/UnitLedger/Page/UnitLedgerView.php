@@ -44,9 +44,11 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 			$html .= '<tr>';
 			$html .= '<th>' . E::ts('Case ID') . '</th>';
 			$html .= '<th>' . E::ts('Contact') . '</th>';
-			$html .= '<th>' . E::ts('Subject') . '</th>';
 			$html .= '<th>' . E::ts('Case Type') . '</th>';
 			$html .= '<th>' . E::ts('Status') . '</th>';
+			$html .= '<th>' . E::ts('Allocated') . '</th>';
+			$html .= '<th>' . E::ts('Delivered') . '</th>';
+			$html .= '<th>' . E::ts('Remaining') . '</th>';
 			$html .= '<th>' . E::ts('Created Date') . '</th>';
 			$html .= '<th>' . E::ts('Modified Date') . '</th>';
 			$html .= '</tr>';
@@ -59,9 +61,11 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 				$html .= '<tr class="' . $class . '">';
 				$html .= '<td>' . $row['id'] . '</td>';
 				$html .= '<td>' . $row['display_name'] . '</td>';
-				$html .= '<td>' . ($row['subject'] ?: '-') . '</td>';
 				$html .= '<td>' . ($row['case_type_title'] ?: '-') . '</td>';
 				$html .= '<td>' . ($row['case_status_label'] ?: '-') . '</td>';
+				$html .= '<td>' . ($row['total_housing_units_allocated'] ?: '-') . '</td>';
+				$html .= '<td>' . ($row['total_housing_units_delivered'] ?: '-') . '</td>';
+				$html .= '<td>' . ($row['total_housing_units_remaining'] ?: '-') . '</td>';
 				$html .= '<td>' . CRM_Utils_Date::customFormat($row['created_date']) . '</td>';
 				$html .= '<td>' . CRM_Utils_Date::customFormat($row['modified_date']) . '</td>';
 				$html .= '</tr>';
@@ -95,12 +99,16 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 				cs.status_id,
 				ct.title AS case_type_title,
 				ov.label AS case_status_label,
-				c.display_name AS display_name
+				c.display_name AS display_name,
+				huu.total_housing_units_allocated_311 AS total_housing_units_allocated,
+				huu.total_housing_units_delivered_312 AS total_housing_units_delivered,
+				huu.total_housing_units_remaining_313 AS total_housing_units_remaining
 			FROM civicrm_case cs
 			LEFT JOIN civicrm_case_type ct ON ct.id = cs.case_type_id
 			LEFT JOIN civicrm_option_value ov ON ov.value = cs.status_id AND ov.option_group_id = 26
 			LEFT JOIN  civicrm_case_contact ccc ON ccc.case_id = cs.id
 			LEFT JOIN  civicrm_contact c ON c.id = ccc.contact_id
+			LEFT JOIN  civicrm_value_housing_units_41 huu ON huu.entity_id = cs.id
 			WHERE cs.is_deleted = 0
 		";
 
