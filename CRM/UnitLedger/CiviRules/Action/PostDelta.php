@@ -394,7 +394,12 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       }
       elseif ($entryInfo['entry_type'] === 'adjustment') {
         // Use custom_311 for Total Housing Units Allocated adjustments
-        $fieldName = 'custom_309';
+        if($entryInfo['program'] === 'Housing') {
+          $fieldName = 'custom_309';
+        }elseif($entryInfo['program'] === 'Employment') {
+          $fieldName = 'custom_310';
+        }
+
        // $this->logAction("Using Total ".$entryInfo['program']." Units Allocated field (adjustment): " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
          // Debug: Show all available field names in activity data
         $value = $activity[$fieldName] ?? 0;        
