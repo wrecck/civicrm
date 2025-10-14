@@ -535,24 +535,39 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
    * @param array $data
    */
   private function insertLedgerEntry($data) {
-
-    ##Check civicrm_value_housing_units_41 to extract total_housing_units_allocated_311, total_housing_units_delivered_312, total_housing_units_remaining_313
-    $checkSql = "
-      SELECT total_housing_units_allocated_311, total_housing_units_delivered_312, total_housing_units_remaining_313
-      FROM civicrm_value_housing_units_41
-      WHERE entity_id = %1
-    ";
-    $checkParams = [1 => [$data['case_id'], 'Integer']];
-    $result = CRM_Core_DAO::executeQuery($checkSql, $checkParams);
-    $totalHousingUnitsAllocated = 0;
-    $totalHousingUnitsDelivered = 0;
-    $totalHousingUnitsRemaining = 0;
-    if($result->fetch()) {
-      $totalHousingUnitsAllocated = $result->total_housing_units_allocated_311;
-      $totalHousingUnitsDelivered = $result->total_housing_units_delivered_312;
-      $totalHousingUnitsRemaining = $result->total_housing_units_remaining_313;
+    $totalUnitsAllocated = 0;
+    $totalUnitsDelivered = 0;
+    $totalUnitsRemaining = 0;
+    
+    if($data['program'] === 'Housing') {
+        ##Check civicrm_value_housing_units_41 to extract total_housing_units_allocated_311, total_housing_units_delivered_312, total_housing_units_remaining_313
+        $checkSql = "
+          SELECT total_housing_units_allocated_311, total_housing_units_delivered_312, total_housing_units_remaining_313
+          FROM civicrm_value_housing_units_41
+          WHERE entity_id = %1
+        ";
+        $checkParams = [1 => [$data['case_id'], 'Integer']];
+        $result = CRM_Core_DAO::executeQuery($checkSql, $checkParams);
+        if($result->fetch()) {
+          $totalUnitsAllocated = $result->total_housing_units_allocated_311;
+          $totalUnitsDelivered = $result->total_housing_units_delivered_312;
+          $totalUnitsRemaining = $result->total_housing_units_remaining_313;
+        }
+      }elseif($data['program'] === 'Employment') {
+        $checkSql = "
+          SELECT total_employment_units_allocated_314, total_employment_units_delivered_315, total_employment_units_remaining_316
+          FROM civicrm_value_employment_un_42
+          WHERE entity_id = %1
+        ";
+    
+        $checkParams = [1 => [$data['case_id'], 'Integer']];
+        $result = CRM_Core_DAO::executeQuery($checkSql, $checkParams);
+        if($result->fetch()) {
+          $totalUnitsAllocated = $result->total_employment_units_allocated_314;
+          $totalUnitsDelivered = $result->total_employment_units_delivered_315;
+          $totalUnitsRemaining = $result->total_employment_units_remaining_316;
+        }
     }
-
 
 
     
