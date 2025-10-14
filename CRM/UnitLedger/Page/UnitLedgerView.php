@@ -121,7 +121,7 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 			LEFT JOIN civicrm_option_value ov ON ov.value = cs.status_id AND ov.option_group_id = 26
 			LEFT JOIN  civicrm_case_contact ccc ON ccc.case_id = cs.id
 			LEFT JOIN  civicrm_contact c ON c.id = ccc.contact_id
-			LEFT JOIN  civicrm_value_housing_units_41 huu ON huu.entity_id = cs.id,
+			LEFT JOIN  civicrm_value_housing_units_41 huu ON huu.entity_id = cs.id
 			LEFT JOIN  civicrm_value_employment_un_42 euu ON euu.entity_id = cs.id
 			WHERE cs.is_deleted = 0
 		";
