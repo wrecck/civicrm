@@ -569,7 +569,6 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         }
     }
 
-
     
     // Check if entry already exists for same activity_id, case_id, and entry_type
     $checkSql = "
@@ -649,15 +648,17 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
           WHERE entity_id = %3
         ";
       }
-      $totalDelivered = $totalHousingUnitsDelivered + $data['units_delta'];
-      $totalHousingUnitsRemaining = $totalHousingUnitsAllocated - $totalDelivered;
+      //    totalUnitsAllocated totalUnitsDelivered totalUnitsRemaining
+
+      $totalDelivered = $totalUnitsDelivered + $data['units_delta'];
+      $totalUnitsRemaining = $totalUnitsAllocated - $totalDelivered;
       $updateParamsDelivery = [
         1 => [$totalDelivered, 'Integer'],
-        2 => [$totalHousingUnitsRemaining, 'Integer'],
+        2 => [$totalUnitsRemaining, 'Integer'],
         3 => [$data['case_id'], 'Integer'],
       ];
       CRM_Core_DAO::executeQuery($updateSqlDelivery, $updateParamsDelivery);
-      $this->logAction("Updated  units - totalDelivered: {$totalDelivered} - total units allocated: {$totalHousingUnitsAllocated} - total remaining: {$totalHousingUnitsRemaining}", NULL, \Psr\Log\LogLevel::INFO);
+      $this->logAction("Updated  units - totalDelivered: {$totalDelivered} - total units allocated: {$totalUnitsAllocated} - total remaining: {$totalUnitsRemaining}", NULL, \Psr\Log\LogLevel::INFO);
     }
 
 
