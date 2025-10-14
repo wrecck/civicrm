@@ -57,7 +57,7 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 			
 			$i = 0;
 			foreach ($caseData as $row) {
-				if($row['case_type_title'] == 'FCS Housing	') {
+				if($row['case_type_title'] == 'FCS Housing') {
 					$total_units_allocated = $row['total_housing_units_allocated'];
 					$total_units_delivered = $row['total_housing_units_delivered'];
 					$total_units_remaining = $row['total_housing_units_remaining'];
