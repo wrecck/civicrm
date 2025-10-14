@@ -157,6 +157,9 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 				'total_housing_units_allocated' => $dao->total_housing_units_allocated,
 				'total_housing_units_delivered' => $dao->total_housing_units_delivered,
 				'total_housing_units_remaining' => $dao->total_housing_units_remaining,
+				'total_employment_units_allocated' => $dao->total_employment_units_allocated,
+				'total_employment_units_delivered' => $dao->total_employment_units_delivered,
+				'total_employment_units_remaining' => $dao->total_employment_units_remaining,
 			];
 		}
 		return $rows;
