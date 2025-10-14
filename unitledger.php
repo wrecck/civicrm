@@ -46,7 +46,7 @@ function unitledger_civicrm_tabset($tabsetName, &$tabs, $context) {
 	$tpl->assign('ledgerData', $ledgerData);
 	$tpl->assign('caseId', $caseId);
 	$tpl->assign('contactId', $contactId);
-	$content = $tpl->fetch('CRM/UnitLedger/Tab/CaseLedger.tpl');
+	$content = $tpl->fetch('CRM/UnitLedger/Tab/CaseLedger2.tpl');
 
 	$tabs[] = [
 		'id' => 'unitledger_case_tab',
