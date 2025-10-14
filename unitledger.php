@@ -72,7 +72,7 @@ function unitledger_get_case_ledger_data($caseId) {
 
 	$sql = "
 		SELECT 
-			cs.id,
+			cs.id,d
 			cs.case_type_id,
 			cs.subject,
 			cs.created_date,
