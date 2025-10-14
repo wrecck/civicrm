@@ -19,12 +19,12 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       
       // Check contact ID immediately
       $rawContactId = $triggerData->getContactId();
-      $this->logAction('Raw contact ID from trigger: ' . var_export($rawContactId, true), $triggerData, \Psr\Log\LogLevel::INFO);
-      $this->logAction('Contact ID type: ' . gettype($rawContactId), $triggerData, \Psr\Log\LogLevel::INFO);
-      $this->logAction('Contact ID is numeric: ' . (is_numeric($rawContactId) ? 'YES' : 'NO'), $triggerData, \Psr\Log\LogLevel::INFO);
+      //$this->logAction('Raw contact ID from trigger: ' . var_export($rawContactId, true), $triggerData, \Psr\Log\LogLevel::INFO);
+     // $this->logAction('Contact ID type: ' . gettype($rawContactId), $triggerData, \Psr\Log\LogLevel::INFO);
+      //$this->logAction('Contact ID is numeric: ' . (is_numeric($rawContactId) ? 'YES' : 'NO'), $triggerData, \Psr\Log\LogLevel::INFO);
       
       // Add step-by-step debugging
-      $this->logAction('About to get entity data...', $triggerData, \Psr\Log\LogLevel::INFO);
+     // $this->logAction('About to get entity data...', $triggerData, \Psr\Log\LogLevel::INFO);
       
       try {
         // Try to get entity data for common entity types
@@ -36,7 +36,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
             $entityData = $triggerData->getEntityData($entityType);
             if (!empty($entityData)) {
               $allEntityData[$entityType] = $entityData;
-              $this->logAction("Entity {$entityType} data: " . json_encode($entityData), $triggerData, \Psr\Log\LogLevel::INFO);
+            //  $this->logAction("Entity {$entityType} data: " . json_encode($entityData), $triggerData, \Psr\Log\LogLevel::INFO);
             }
           } catch (Exception $e) {
             $this->logAction("No {$entityType} data available: " . $e->getMessage(), $triggerData, \Psr\Log\LogLevel::INFO);
@@ -51,7 +51,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         return;
       }
       
-      $this->logAction('About to get activity data...', $triggerData, \Psr\Log\LogLevel::INFO);
+     // $this->logAction('About to get activity data...', $triggerData, \Psr\Log\LogLevel::INFO);
       
       // Get the activity data - try different ways depending on trigger
       $activity = $triggerData->getEntityData('Activity');
@@ -62,7 +62,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         if (!empty($case['activities'])) {
           // Get the most recent activity ID from the case
           $activityId = end($case['activities']);
-          $this->logAction('Found activity ID from case: ' . $activityId, $triggerData, \Psr\Log\LogLevel::INFO);
+          //$this->logAction('Found activity ID from case: ' . $activityId, $triggerData, \Psr\Log\LogLevel::INFO);
           
           // Fetch the full activity data using the ID
           if (!empty($activityId)) {
@@ -103,7 +103,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
           
           if ($fullActivity['count'] > 0) {
             $activity = array_merge($activity, $fullActivity['values'][$activityId]);
-            $this->logAction('Fetched full activity data: ' . json_encode($activity), $triggerData, \Psr\Log\LogLevel::INFO);
+           // $this->logAction('Fetched full activity data: ' . json_encode($activity), $triggerData, \Psr\Log\LogLevel::INFO);
           }
         } catch (Exception $e) {
           $this->logAction('Error fetching full activity data: ' . $e->getMessage(), $triggerData, \Psr\Log\LogLevel::ERROR);
@@ -127,7 +127,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       if (empty($contactId) || !is_numeric($contactId)) {
         // Try to get contact ID from case data
         $case = $triggerData->getEntityData('Case');
-        $this->logAction('Case data for contact ID resolution: ' . json_encode($case), $triggerData, \Psr\Log\LogLevel::INFO);
+        //$this->logAction('Case data for contact ID resolution: ' . json_encode($case), $triggerData, \Psr\Log\LogLevel::INFO);
         
         // Try contact_id first
         if (!empty($case['contact_id'])) {
@@ -223,15 +223,15 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       // Determine entry type and program based on activity type
       $entryInfo = $this->getEntryInfo($activityType);
       if (!$entryInfo) {
-        $this->logAction('Activity type not supported for ledger posting: ' . $activityType, $triggerData, \Psr\Log\LogLevel::WARNING);
+        //$this->logAction('Activity type not supported for ledger posting: ' . $activityType, $triggerData, \Psr\Log\LogLevel::WARNING);
         return;
       }
 
       // Calculate units based on entry type
-      $this->logAction('Calculating units for entry type: ' . $entryInfo['entry_type'] . ', program: ' . $entryInfo['program'], $triggerData, \Psr\Log\LogLevel::INFO);
+    //  $this->logAction('Calculating units for entry type: ' . $entryInfo['entry_type'] . ', program: ' . $entryInfo['program'], $triggerData, \Psr\Log\LogLevel::INFO);
       $this->logAction('EntryInfo data: ' . json_encode($entryInfo), $triggerData, \Psr\Log\LogLevel::INFO);
       $units = $this->calculateUnits($activity, $entryInfo,$triggerData);
-      $this->logAction('Calculated units: ' . $units, $triggerData, \Psr\Log\LogLevel::INFO);
+    //  $this->logAction('Calculated units: ' . $units, $triggerData, \Psr\Log\LogLevel::INFO);
       if ($units === NULL) {
         $this->logAction('Could not calculate units for activity', $triggerData, \Psr\Log\LogLevel::WARNING);
         return;
@@ -311,12 +311,12 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       $this->logAction("API Result: " . json_encode($result), NULL, \Psr\Log\LogLevel::INFO);
       
       if ($result['count'] == 0) {
-        $this->logAction("No activity type found for ID: " . $activityTypeId, NULL, \Psr\Log\LogLevel::WARNING);
+       // $this->logAction("No activity type found for ID: " . $activityTypeId, NULL, \Psr\Log\LogLevel::WARNING);
         return NULL;
       }
       
       $activityType = $result['values'][$result['id']]['name'];
-      $this->logAction("Found activity type: " . $activityType . " (ID: " . $activityTypeId . ")", NULL, \Psr\Log\LogLevel::INFO);
+      //$this->logAction("Found activity type: " . $activityType . " (ID: " . $activityTypeId . ")", NULL, \Psr\Log\LogLevel::INFO);
 
       $entryMap = [
         'FCS Housing Authorization' => ['entry_type' => 'deposit', 'program' => 'Housing'],
@@ -353,18 +353,18 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
             
     // Debug: Show all available field names in activity data
       $availableFields = array_keys($activity);
-      $this->logAction("Available fields in activity (".$entryInfo['entry_type']."): " . implode(', ', $availableFields), NULL, \Psr\Log\LogLevel::INFO);
+      //$this->logAction("Available fields in activity (".$entryInfo['entry_type']."): " . implode(', ', $availableFields), NULL, \Psr\Log\LogLevel::INFO);
       
       // Loop through and log each field name and value
       foreach ($availableFields as $fieldName) {
         $fieldValue = $activity[$fieldName] ?? 'NULL';
-        $this->logAction("Field: {$fieldName} = " . var_export($fieldValue, true), NULL, \Psr\Log\LogLevel::INFO);
+       // $this->logAction("Field: {$fieldName} = " . var_export($fieldValue, true), NULL, \Psr\Log\LogLevel::INFO);
       }
 
       if ($entryInfo['entry_type'] === 'deposit') {
         // Use custom_311 for Total  Units Allocated
         $fieldName = 'custom_311';
-        $this->logAction("Using Total ".$entryInfo['program']." Units Allocated field: " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
+      //  $this->logAction("Using Total ".$entryInfo['program']." Units Allocated field: " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
         
         $value = $activity[$fieldName] ?? 0;
         
@@ -372,17 +372,21 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         if ($value == 0) {
           $fieldNameWithSuffix = $fieldName . '_-1';
           $value = $activity[$fieldNameWithSuffix] ?? 0;
-          $this->logAction("Tried field with suffix '{$fieldNameWithSuffix}': " . $value, NULL, \Psr\Log\LogLevel::INFO);
+        //  $this->logAction("Tried field with suffix '{$fieldNameWithSuffix}': " . $value, NULL, \Psr\Log\LogLevel::INFO);
         }
         
-        $this->logAction("Final field value for '{$fieldName}': " . $value, NULL, \Psr\Log\LogLevel::INFO);
+       // $this->logAction("Final field value for '{$fieldName}': " . $value, NULL, \Psr\Log\LogLevel::INFO);
         return $value;
       }
       elseif ($entryInfo['entry_type'] === 'delivery') { // 
         // For deliveries, convert duration to units
-        $fieldName = 'custom_307';
+        if($entryInfo['program'] === 'Housing') {
+          $fieldName = 'custom_307';
+        }elseif($entryInfo['program'] === 'Employment') {
+          $fieldName = 'custom_308';
+        }
         $value = $activity[$fieldName] ?? 0;    
-        $this->logAction("Using Total ".$entryInfo['program']." Units delivery field: " . $fieldName . " value: " . $value, NULL, \Psr\Log\LogLevel::INFO);
+      //  $this->logAction("Using Total ".$entryInfo['program']." Units delivery field: " . $fieldName . " value: " . $value, NULL, \Psr\Log\LogLevel::INFO);
          // Debug: Show all available field names in activity data
 
 
@@ -391,17 +395,17 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       elseif ($entryInfo['entry_type'] === 'adjustment') {
         // Use custom_311 for Total Housing Units Allocated adjustments
         $fieldName = 'custom_309';
-        $this->logAction("Using Total ".$entryInfo['program']." Units Allocated field (adjustment): " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
+       // $this->logAction("Using Total ".$entryInfo['program']." Units Allocated field (adjustment): " . $fieldName, NULL, \Psr\Log\LogLevel::INFO);
          // Debug: Show all available field names in activity data
         $value = $activity[$fieldName] ?? 0;        
         // Also try the -1 suffix version (for new records)
         if ($value == 0) {
           $fieldNameWithSuffix = $fieldName . '_-1';
           $value = $activity[$fieldNameWithSuffix] ?? 0;
-          $this->logAction("Tried field with suffix '{$fieldNameWithSuffix}' (adjustment): " . $value, NULL, \Psr\Log\LogLevel::INFO);
+       //   $this->logAction("Tried field with suffix '{$fieldNameWithSuffix}' (adjustment): " . $value, NULL, \Psr\Log\LogLevel::INFO);
         }
         
-        $this->logAction("Final field value for '{$fieldName}' (adjustment): " . $value, NULL, \Psr\Log\LogLevel::INFO);
+       // $this->logAction("Final field value for '{$fieldName}' (adjustment): " . $value, NULL, \Psr\Log\LogLevel::INFO);
         return $value;
       }
       elseif ($entryInfo['entry_type'] === 'case_opened') {
@@ -411,7 +415,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
             $entityData = $triggerData->getEntityData($entityType);
             if (!empty($entityData)) {
               $allEntityData[$entityType] = $entityData;
-              $this->logAction("Entity {$entityType} data in case_opened: " . json_encode($entityData), $triggerData, \Psr\Log\LogLevel::INFO);
+             // $this->logAction("Entity {$entityType} data in case_opened: " . json_encode($entityData), $triggerData, \Psr\Log\LogLevel::INFO);
             }    
         }
 
@@ -427,7 +431,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       elseif($entryInfo['entry_type'] === 'change_custom_data') {
         $fieldName = 'custom_311_43';
         $value = $activity[$fieldName] ?? 0;
-        $this->logAction("Using Total ".$entryInfo['program']." Units Allocated field (change custom data): " . $fieldName . " value: " . $value, NULL, \Psr\Log\LogLevel::INFO);
+       // $this->logAction("Using Total ".$entryInfo['program']." Units Allocated field (change custom data): " . $fieldName . " value: " . $value, NULL, \Psr\Log\LogLevel::INFO);
         return $value;
       }
 
@@ -457,7 +461,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         $this->logAction("getCustomFieldName received non-string label: " . gettype($label), NULL, \Psr\Log\LogLevel::ERROR);
         return NULL;
       }
-      $this->logAction("Searching for custom field with label: " . $label, NULL, \Psr\Log\LogLevel::INFO);
+      //$this->logAction("Searching for custom field with label: " . $label, NULL, \Psr\Log\LogLevel::INFO);
       $sql = "
         SELECT cf.id, cf.column_name 
         FROM civicrm_custom_field cf
@@ -471,10 +475,10 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       if ($dao->fetch()) {
         $fieldName = 'custom_' . $dao->id;
         $fieldCache[$label] = $fieldName;
-        $this->logAction("Found custom field: " . $dao->column_name . " (ID: " . $dao->id . ", API name: " . $fieldName . ")", NULL, \Psr\Log\LogLevel::INFO);
+        //$this->logAction("Found custom field: " . $dao->column_name . " (ID: " . $dao->id . ", API name: " . $fieldName . ")", NULL, \Psr\Log\LogLevel::INFO);
         return $fieldName;
       } else {
-        $this->logAction("No custom field found for label: " . $label, NULL, \Psr\Log\LogLevel::WARNING);
+        //$this->logAction("No custom field found for label: " . $label, NULL, \Psr\Log\LogLevel::WARNING);
       }
     } catch (Exception $e) {
       $this->logAction("Error finding custom field '{$label}': " . $e->getMessage(), NULL, \Psr\Log\LogLevel::ERROR);
@@ -522,11 +526,11 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       'created_by' => CRM_Core_Session::getLoggedInContactID(),
       'modified_date' => "0000-00-00 00:00:00",
     ];
-    $this->logAction("Posting ledger data: " . json_encode($ledgerData), $triggerData, \Psr\Log\LogLevel::INFO);
+    //$this->logAction("Posting ledger data: " . json_encode($ledgerData), $triggerData, \Psr\Log\LogLevel::INFO);
     // Store in a simple custom table for now
     $this->insertLedgerEntry($ledgerData);
 
-    $this->logAction("Posted {$entryInfo['entry_type']} of {$units} units for {$entryInfo['program']} program", $triggerData, \Psr\Log\LogLevel::INFO);
+   // $this->logAction("Posted {$entryInfo['entry_type']} of {$units} units for {$entryInfo['program']} program", $triggerData, \Psr\Log\LogLevel::INFO);
   }
 
   /**
@@ -612,7 +616,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       ];
       
       CRM_Core_DAO::executeQuery($updateSql, $updateParams);
-      $this->logAction("Updated existing ledger entry ID {$existingEntry['id']} - units_delta: {$existingEntry['old_units_delta']} → {$data['units_delta']}", NULL, \Psr\Log\LogLevel::INFO);
+     // $this->logAction("Updated existing ledger entry ID {$existingEntry['id']} - units_delta: {$existingEntry['old_units_delta']} → {$data['units_delta']}", NULL, \Psr\Log\LogLevel::INFO);
       
     } else {
 
@@ -630,7 +634,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         2 => [$data['case_id'], 'Integer'],
       ];
       CRM_Core_DAO::executeQuery($updateSqlAdjustment, $updateParamsAdjustment);
-      $this->logAction("Updated  civicrm_value_housing_units_41 total housing units allocated for case {$data['case_id']} by {$data['units_delta']}", NULL, \Psr\Log\LogLevel::INFO);
+     // $this->logAction("Updated  civicrm_value_housing_units_41 total housing units allocated for case {$data['case_id']} by {$data['units_delta']}", NULL, \Psr\Log\LogLevel::INFO);
     }
 
     ##Update civicrm_value_housing_units_41 for delivery
@@ -685,7 +689,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
       ];
       
       CRM_Core_DAO::executeQuery($sql, $params);
-      $this->logAction("Created new ledger entry", NULL, \Psr\Log\LogLevel::INFO);
+     // $this->logAction("Created new ledger entry", NULL, \Psr\Log\LogLevel::INFO);
     }
   }
 
