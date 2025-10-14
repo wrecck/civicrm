@@ -621,11 +621,19 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
 
     ##Update civicrm_value_housing_units_41 for delivery
     if($data['entry_type'] === 'delivery') {
-      $updateSqlDelivery = "
+      if($data['program'] === 'Housing') {
+        $updateSqlDelivery = "
         UPDATE civicrm_value_housing_units_41
         SET total_housing_units_delivered_312 = %1, total_housing_units_remaining_313 = %2
         WHERE entity_id = %3
       ";
+      }elseif($data['program'] === 'Employment') {
+        $updateSqlDelivery = "
+          UPDATE civicrm_value_employment_un_42
+          SET total_employment_units_delivered_315 = %1, total_employment_units_remaining_316 = %2
+          WHERE entity_id = %3
+        ";
+      }
       $totalDelivered = $totalHousingUnitsDelivered + $data['units_delta'];
       $totalHousingUnitsRemaining = $totalHousingUnitsAllocated - $totalDelivered;
       $updateParamsDelivery = [
@@ -634,7 +642,7 @@ class CRM_UnitLedger_CiviRules_Action_PostDelta extends CRM_Civirules_Action {
         3 => [$data['case_id'], 'Integer'],
       ];
       CRM_Core_DAO::executeQuery($updateSqlDelivery, $updateParamsDelivery);
-      $this->logAction("Updated  civicrm_value_housing_units_41 - totalDelivered: {$totalDelivered} - totalHousingUnitsAllocated: {$totalHousingUnitsAllocated} - totalHousingUnitsRemaining: {$totalHousingUnitsRemaining}", NULL, \Psr\Log\LogLevel::INFO);
+      $this->logAction("Updated  units - totalDelivered: {$totalDelivered} - total units allocated: {$totalHousingUnitsAllocated} - total remaining: {$totalHousingUnitsRemaining}", NULL, \Psr\Log\LogLevel::INFO);
     }
 
 
