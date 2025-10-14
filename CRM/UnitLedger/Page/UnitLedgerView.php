@@ -47,6 +47,10 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 			$html .= '<thead>';
 			$html .= '<tr>';
 			$html .= '<th>' . E::ts('Date') . '</th>';
+			$html .= '<th>' . E::ts('Case ID') . '</th>';
+			$html .= '<th>' . E::ts('Case Subject') . '</th>';
+			$html .= '<th>' . E::ts('Case Type') . '</th>';
+			$html .= '<th>' . E::ts('Case Status') . '</th>';
 			$html .= '<th>' . E::ts('Activity') . '</th>';
 			$html .= '<th>' . E::ts('Activity Type') . '</th>';
 			$html .= '<th>' . E::ts('Contact') . '</th>';
@@ -65,6 +69,10 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 				$class = (++$i % 2 == 0) ? 'even-row' : 'odd-row';
 				$html .= '<tr class="' . $class . '">';
 				$html .= '<td>' . CRM_Utils_Date::customFormat($row['created_date']) . '</td>';
+				$html .= '<td>' . ($row['case_id'] ?: '-') . '</td>';
+				$html .= '<td>' . ($row['case_subject'] ?: '-') . '</td>';
+				$html .= '<td>' . ($row['case_type_title'] ?: '-') . '</td>';
+				$html .= '<td>' . ($row['case_status_label'] ?: '-') . '</td>';
 				$html .= '<td>' . ($row['activity_subject'] ?: '-') . '</td>';
 				$html .= '<td>' . ($row['activity_type_name'] ?: '-') . '</td>';
 				$html .= '<td>' . ($row['contact_name'] ?: $row['contact_id']) . '</td>';
@@ -118,13 +126,30 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 				ul.created_by,
 				a.subject AS activity_subject,
 				ov.label AS activity_type_name,
-				c.display_name AS contact_name
+				c.display_name AS contact_name,
+				-- Case information
+				cs.id AS case_id,
+				cs.case_type_id,
+				cs.subject AS case_subject,
+				cs.created_date AS case_created_date,
+				cs.modified_date AS case_modified_date,
+				cs.status_id AS case_status_id,
+				ct.title AS case_type_title,
+				cs_ov.label AS case_status_label
 			FROM civicrm_unit_ledger ul
 			LEFT JOIN civicrm_activity a ON a.id = ul.activity_id
 			LEFT JOIN civicrm_option_value ov 
 				ON ov.value = a.activity_type_id 
 				AND ov.option_group_id = (SELECT id FROM civicrm_option_group WHERE name = 'activity_type' LIMIT 1)
 			LEFT JOIN civicrm_contact c ON c.id = ul.contact_id
+			-- Join with case table
+			LEFT JOIN civicrm_case cs ON cs.id = ul.case_id
+			-- Join with case type table
+			LEFT JOIN civicrm_case_type ct ON ct.id = cs.case_type_id
+			-- Join with option value for case status
+			LEFT JOIN civicrm_option_value cs_ov 
+				ON cs_ov.value = cs.status_id 
+				AND cs_ov.option_group_id = 26
 			WHERE 1=1
 		";
 
@@ -167,6 +192,15 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 				'description' => $dao->description,
 				'created_date' => $dao->created_date,
 				'created_by' => $dao->created_by,
+				// Case information
+				'case_id' => $dao->case_id,
+				'case_type_id' => $dao->case_type_id,
+				'case_subject' => $dao->case_subject,
+				'case_created_date' => $dao->case_created_date,
+				'case_modified_date' => $dao->case_modified_date,
+				'case_status_id' => $dao->case_status_id,
+				'case_type_title' => $dao->case_type_title,
+				'case_status_label' => $dao->case_status_label,
 			];
 		}
 		return $rows;
