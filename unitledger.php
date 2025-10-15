@@ -125,24 +125,19 @@ function unitledger_civicrm_alterMenu(&$items) {
 
 /**
  * Implements hook_civicrm_navigationMenu().
- * Adds Unit Ledger to the main navigation menu.
+ * Adds Unit Ledger to the main navigation menu - simplified version.
  */
 function unitledger_civicrm_navigationMenu(&$menu) {
-	_unitledger_civix_insert_navigation_menu($menu, 'Administer', [
+	// Simple approach - just add to Reports section
+	$menu['Reports']['child']['unit_ledger'] = [
 		'label' => E::ts('Unit Ledger'),
 		'name' => 'unit_ledger',
-		'url' => '',
-		'permission' => 'administer CiviCRM',
-		'operator' => 'OR',
-		'separator' => 0,
-	]);
-	_unitledger_civix_insert_navigation_menu($menu, 'Administer/unit_ledger', [
-		'label' => E::ts('View Cases'),
-		'name' => 'view_cases',
 		'url' => CRM_Utils_System::url('civicrm/unitledger', 'reset=1', true),
-		'permission' => 'administer CiviCRM',
+		'permission' => 'access CiviCRM',
 		'operator' => 'OR',
 		'separator' => 0,
-	]);
+		'active' => 1,
+	];
 }
+
 
