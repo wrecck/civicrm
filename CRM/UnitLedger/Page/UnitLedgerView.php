@@ -5,20 +5,30 @@ use CRM_UnitLedger_ExtensionUtil as E;
 class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 
 	public function run() {
-		// Optional filters
-		$caseId = CRM_Utils_Request::retrieve('caseid', 'Positive');
-		$contactId = CRM_Utils_Request::retrieve('cid', 'Positive');
+		try {
+			// Debug: Log that the page is being called
+			CRM_Core_Error::debug_log_message('UnitLedger: Page controller run() called');
+			
+			// Optional filters
+			$caseId = CRM_Utils_Request::retrieve('caseid', 'Positive');
+			$contactId = CRM_Utils_Request::retrieve('cid', 'Positive');
 
-		CRM_Utils_System::setTitle(E::ts('Unit Ledger - Cases'));
+			CRM_Utils_System::setTitle(E::ts('Unit Ledger - Cases'));
 
-		$caseData = $this->getCaseData($caseId, $contactId);
+			$caseData = $this->getCaseData($caseId, $contactId);
+			CRM_Core_Error::debug_log_message('UnitLedger: Got case data: ' . count($caseData) . ' records');
 
-		// Generate HTML directly instead of using Smarty template
-		$html = $this->generateHTML($caseData, $caseId, $contactId);
-		
-		// Output the HTML
-		echo $html;
-		return;
+			// Generate HTML directly instead of using Smarty template
+			$html = $this->generateHTML($caseData, $caseId, $contactId);
+			CRM_Core_Error::debug_log_message('UnitLedger: Generated HTML length: ' . strlen($html));
+			
+			// Output the HTML
+			echo $html;
+			return;
+		} catch (Exception $e) {
+			CRM_Core_Error::debug_log_message('UnitLedger: Error in run(): ' . $e->getMessage());
+			echo '<div class="crm-container"><div class="crm-section"><h2>Unit Ledger - Error</h2><p>Error: ' . htmlspecialchars($e->getMessage()) . '</p></div></div>';
+		}
 	}
 
 	/**
@@ -125,6 +135,8 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 			LEFT JOIN  civicrm_value_employment_un_42 euu ON euu.entity_id = cs.id
 			WHERE cs.is_deleted = 0
 		";
+		
+		CRM_Core_Error::debug_log_message('UnitLedger: SQL query: ' . $sql);
 
 		$params = [];
 		$idx = 1;
@@ -141,7 +153,16 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 
 		$sql .= " ORDER BY cs.created_date DESC";
 
-		$dao = CRM_Core_DAO::executeQuery($sql, $params);
+		CRM_Core_Error::debug_log_message('UnitLedger: About to execute SQL with params: ' . print_r($params, true));
+		
+		try {
+			$dao = CRM_Core_DAO::executeQuery($sql, $params);
+			CRM_Core_Error::debug_log_message('UnitLedger: SQL executed successfully');
+		} catch (Exception $e) {
+			CRM_Core_Error::debug_log_message('UnitLedger: SQL error: ' . $e->getMessage());
+			return [];
+		}
+		
 		$rows = [];
 		while ($dao->fetch()) {
 			$rows[] = [
