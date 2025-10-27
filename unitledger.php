@@ -111,22 +111,35 @@ function unitledger_get_case_ledger_data($caseId) {
 	return $rows;
 }
 
+/**
+ * Implements hook_civicrm_alterMenu().
+ * Registers a route for the standalone Unit Ledger page.
+ */
+function unitledger_civicrm_alterMenu(&$items) {
+	$items['civicrm/unitledger'] = [
+		'page_callback' => 'CRM_UnitLedger_Page_UnitLedgerView',
+		'access_arguments' => ['access CiviCRM'],
+		'is_public' => 0,
+	];
+}
 
 /**
  * Implements hook_civicrm_navigationMenu().
- * Adds Unit Ledger to the main navigation menu using Civix helper.
+ * Adds Unit Ledger to the main navigation menu - simple approach.
  */
 function unitledger_civicrm_navigationMenu(&$menu) {
-	_unitledger_civix_insert_navigation_menu($menu, 'Reports', [
-		'label' => E::ts('Unit Ledger'),
-		'name' => 'unit_ledger',
-		'url' => 'civicrm/unitledger',
-		'permission' => 'access CiviCRM',
-		'operator' => 'OR',
-		'separator' => 0,
-		'active' => 1,
-	]);
-	_unitledger_civix_navigationMenu($menu);
+	// Simple approach - just add to Reports section without using Civix helper
+	if (isset($menu['Reports']['child'])) {
+		$menu['Reports']['child']['unit_ledger'] = [
+			'label' => E::ts('Unit Ledger'),
+			'name' => 'unit_ledger',
+			'url' => 'civicrm/unitledger',
+			'permission' => 'access CiviCRM',
+			'operator' => 'OR',
+			'separator' => 0,
+			'active' => 1,
+		];
+	}
 }
 
 
