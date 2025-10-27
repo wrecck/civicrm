@@ -121,6 +121,16 @@ function unitledger_civicrm_alterMenu(&$items) {
 		'access_arguments' => ['access CiviCRM'],
 		'is_public' => 0,
 	];
+	
+	// Also try with a different route name
+	$items['civicrm/unit-ledger'] = [
+		'page_callback' => 'CRM_UnitLedger_Page_UnitLedgerView',
+		'access_arguments' => ['access CiviCRM'],
+		'is_public' => 0,
+	];
+	
+	// Debug: Log that the route is being registered
+	CRM_Core_Error::debug_log_message('UnitLedger: Registering routes civicrm/unitledger and civicrm/unit-ledger');
 }
 
 /**

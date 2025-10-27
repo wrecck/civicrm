@@ -6,6 +6,9 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 
 	public function run() {
 		try {
+			// Debug: Log that the page is being called
+			CRM_Core_Error::debug_log_message('UnitLedger: Page controller run() called');
+			
 			// Optional filters
 			$caseId = CRM_Utils_Request::retrieve('caseid', 'Positive');
 			$contactId = CRM_Utils_Request::retrieve('cid', 'Positive');
@@ -23,6 +26,7 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 			parent::run();
 			return;
 		} catch (Exception $e) {
+			CRM_Core_Error::debug_log_message('UnitLedger: Error in run(): ' . $e->getMessage());
 			$this->assign('error', $e->getMessage());
 			parent::run();
 		}
