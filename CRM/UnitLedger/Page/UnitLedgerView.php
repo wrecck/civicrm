@@ -28,6 +28,13 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 		}
 	}
 
+	/**
+	 * Override to specify the template file
+	 */
+	public function getTemplateFileName() {
+		return E::path('templates/CRM/UnitLedger/Page/UnitLedgerView.tpl');
+	}
+
 
 	/**
 	 * Fetch case data with optional filters
