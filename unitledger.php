@@ -133,23 +133,5 @@ function unitledger_civicrm_alterMenu(&$items) {
 	CRM_Core_Error::debug_log_message('UnitLedger: Registering routes civicrm/unitledger and civicrm/unit-ledger');
 }
 
-/**
- * Implements hook_civicrm_navigationMenu().
- * Adds Unit Ledger to the main navigation menu - simple approach.
- */
-function unitledger_civicrm_navigationMenu(&$menu) {
-	// Simple approach - just add to Reports section without using Civix helper
-	if (isset($menu['Reports']['child'])) {
-		$menu['Reports']['child']['unit_ledger'] = [
-			'label' => E::ts('Unit Ledger'),
-			'name' => 'unit_ledger',
-			'url' => 'civicrm/unitledger',
-			'permission' => 'access CiviCRM',
-			'operator' => 'OR',
-			'separator' => 0,
-			'active' => 1,
-		];
-	}
-}
 
 

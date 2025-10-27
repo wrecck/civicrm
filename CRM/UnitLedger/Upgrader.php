@@ -13,6 +13,7 @@ class CRM_UnitLedger_Upgrader extends CRM_Extension_Upgrader_Base {
   public function postInstall() {
     $this->createLedgerTable();
     $this->addUnitLedgerAction();
+    $this->addUnitLedgerMenu();
   }
 
   /**
@@ -67,13 +68,61 @@ class CRM_UnitLedger_Upgrader extends CRM_Extension_Upgrader_Base {
   }
 
   /**
-   * Remove the action and table on uninstall
+   * Add Unit Ledger menu item under Reports
+   */
+  private function addUnitLedgerMenu() {
+    // First, delete any existing entry
+    CRM_Core_DAO::executeQuery("DELETE FROM `civicrm_navigation` WHERE name = 'unit_ledger' and parent_id IS NULL");
+    
+    // Get the Reports menu ID
+    $reportsNavId = CRM_Core_DAO::getFieldValue('CRM_Core_DAO_Navigation', 'Reports', 'id', 'name');
+    
+    if (!$reportsNavId) {
+      // If Reports doesn't exist, try to find it by label
+      $reportsNavId = CRM_Core_DAO::getFieldValue('CRM_Core_DAO_Navigation', 'Reports', 'id', 'label');
+    }
+    
+    if (!$reportsNavId) {
+      CRM_Core_Error::debug_log_message('UnitLedger: Could not find Reports menu item');
+      return;
+    }
+    
+    // Create navigation entry
+    $navigation = new CRM_Core_DAO_Navigation();
+    $params = array(
+      'domain_id'  => CRM_Core_Config::domainID(),
+      'label'      => E::ts('Unit Ledger'),
+      'name'       => 'unit_ledger',
+      'url'        => 'civicrm/unitledger',
+      'parent_id'  => $reportsNavId,
+      'weight'     => 0,
+      'permission' => 'access CiviCRM',
+      'separator'  => 1,
+      'is_active'  => 1
+    );
+    $navigation->copyValues($params);
+    $navigation->save();
+    
+    // Reset navigation cache
+    CRM_Core_BAO_Navigation::resetNavigation();
+    
+    CRM_Core_Error::debug_log_message('UnitLedger: Added Unit Ledger menu item under Reports');
+  }
+
+  /**
+   * Remove the action, table, and menu on uninstall
    */
   public function uninstall() {
     $sql = "DELETE FROM civirule_action WHERE name = 'unitledger_post_delta'";
     CRM_Core_DAO::executeQuery($sql);
     
+    $sql = "DELETE FROM civicrm_navigation WHERE name = 'unit_ledger'";
+    CRM_Core_DAO::executeQuery($sql);
+    
     $sql = "DROP TABLE IF EXISTS civicrm_unit_ledger";
     CRM_Core_DAO::executeQuery($sql);
+    
+    // Reset navigation cache
+    CRM_Core_BAO_Navigation::resetNavigation();
   }
 }
