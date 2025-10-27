@@ -6,9 +6,6 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 
 	public function run() {
 		try {
-			// Debug: Log that the page is being called
-			CRM_Core_Error::debug_log_message('UnitLedger: Page controller run() called');
-			
 			// Optional filters
 			$caseId = CRM_Utils_Request::retrieve('caseid', 'Positive');
 			$contactId = CRM_Utils_Request::retrieve('cid', 'Positive');
@@ -16,94 +13,21 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 			CRM_Utils_System::setTitle(E::ts('Unit Ledger - Cases'));
 
 			$caseData = $this->getCaseData($caseId, $contactId);
-			CRM_Core_Error::debug_log_message('UnitLedger: Got case data: ' . count($caseData) . ' records');
 
-			// Generate HTML directly instead of using Smarty template
-			$html = $this->generateHTML($caseData, $caseId, $contactId);
-			CRM_Core_Error::debug_log_message('UnitLedger: Generated HTML length: ' . strlen($html));
+			// Assign data to Smarty template
+			$this->assign('caseData', $caseData);
+			$this->assign('caseId', $caseId);
+			$this->assign('contactId', $contactId);
 			
-			// Output the HTML
-			echo $html;
+			// Use CiviCRM's standard page rendering
+			parent::run();
 			return;
 		} catch (Exception $e) {
-			CRM_Core_Error::debug_log_message('UnitLedger: Error in run(): ' . $e->getMessage());
-			echo '<div class="crm-container"><div class="crm-section"><h2>Unit Ledger - Error</h2><p>Error: ' . htmlspecialchars($e->getMessage()) . '</p></div></div>';
+			$this->assign('error', $e->getMessage());
+			parent::run();
 		}
 	}
 
-	/**
-	 * Generate HTML for the case view
-	 */
-	private function generateHTML($caseData, $caseId, $contactId) {
-		$html = '<div class="crm-container">';
-		$html .= '<div class="crm-section">';
-		//$html .= '<h2>' . E::ts('Unit Ledger - Cases') . '</h2>';
-		
-		// Filter summary
-		$filters = [];
-		if ($caseId) $filters[] = 'Case: ' . $caseId;
-		if ($contactId) $filters[] = 'Contact: ' . $contactId;
-		
-		if (!empty($filters)) {
-			$html .= '<div class="messages status">' . implode(' | ', $filters) . '</div>';
-		}
-		
-		if (!empty($caseData)) {
-			$html .= '<table class="selector">';
-			$html .= '<thead>';
-			$html .= '<tr>';
-			$html .= '<th>' . E::ts('Case ID') . '</th>';
-			$html .= '<th>' . E::ts('Contact') . '</th>';
-			$html .= '<th>' . E::ts('Case Type') . '</th>';
-			$html .= '<th>' . E::ts('Status') . '</th>';
-			$html .= '<th>' . E::ts('Allocated') . '</th>';
-			$html .= '<th>' . E::ts('Delivered') . '</th>';
-			$html .= '<th>' . E::ts('Remaining') . '</th>';
-			$html .= '<th>' . E::ts('Created Date') . '</th>';
-			$html .= '<th>' . E::ts('Modified Date') . '</th>';
-			$html .= '</tr>';
-			$html .= '</thead>';
-			$html .= '<tbody>';
-			
-			$i = 0;
-			foreach ($caseData as $row) {
-				if($row['case_type_title'] == 'FCS Housing') {
-					$total_units_allocated = $row['total_housing_units_allocated'];
-					$total_units_delivered = $row['total_housing_units_delivered'];
-					$total_units_remaining = $row['total_housing_units_remaining'];
-				} else if($row['case_type_title'] == 'FCS Employment') {
-					$total_units_allocated = $row['total_employment_units_allocated'];
-					$total_units_delivered = $row['total_employment_units_delivered'];
-					$total_units_remaining = $row['total_employment_units_remaining'];
-				}
-
-				$class = (++$i % 2 == 0) ? 'even-row' : 'odd-row';
-				$html .= '<tr class="' . $class . '">';
-				$html .= '<td>' . $row['id'] . '</td>';
-				$html .= '<td>' . $row['display_name'] . '</td>';
-				$html .= '<td>' . ($row['case_type_title'] ?: '-') . '</td>';
-				$html .= '<td>' . ($row['case_status_label'] ?: '-') . '</td>';
-				$html .= '<td>' . ($total_units_allocated ?: '-') . '</td>';
-				$html .= '<td>' . ($total_units_delivered ?: '-') . '</td>';
-				$html .= '<td>' . ($total_units_remaining ?: '-') . '</td>';
-				$html .= '<td>' . CRM_Utils_Date::customFormat($row['created_date']) . '</td>';
-				$html .= '<td>' . CRM_Utils_Date::customFormat($row['modified_date']) . '</td>';
-				$html .= '</tr>';
-			}
-			
-			$html .= '</tbody>';
-			$html .= '</table>';
-		} else {
-			$html .= '<div class="status">';
-			$html .= '<p>' . E::ts('No cases found.') . '</p>';
-			$html .= '</div>';
-		}
-		
-		$html .= '</div>';
-		$html .= '</div>';
-		
-		return $html;
-	}
 
 	/**
 	 * Fetch case data with optional filters
@@ -136,8 +60,6 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 			WHERE cs.is_deleted = 0
 		";
 		
-		CRM_Core_Error::debug_log_message('UnitLedger: SQL query: ' . $sql);
-
 		$params = [];
 		$idx = 1;
 		if ($caseId) {
@@ -153,13 +75,9 @@ class CRM_UnitLedger_Page_UnitLedgerView extends CRM_Core_Page {
 
 		$sql .= " ORDER BY cs.created_date DESC";
 
-		CRM_Core_Error::debug_log_message('UnitLedger: About to execute SQL with params: ' . print_r($params, true));
-		
 		try {
 			$dao = CRM_Core_DAO::executeQuery($sql, $params);
-			CRM_Core_Error::debug_log_message('UnitLedger: SQL executed successfully');
 		} catch (Exception $e) {
-			CRM_Core_Error::debug_log_message('UnitLedger: SQL error: ' . $e->getMessage());
 			return [];
 		}
 		

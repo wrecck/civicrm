@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<menu>
+  <item>
+    <path>civicrm/unitledger</path>
+    <page_callback>CRM_UnitLedger_Page_UnitLedgerView</page_callback>
+    <title>Unit Ledger</title>
+    <access_arguments>access CiviCRM</access_arguments>
+  </item>
+</menu>
