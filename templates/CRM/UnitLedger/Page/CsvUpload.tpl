@@ -11,9 +11,9 @@
         </div>
       </div>
     {else}
-      {if $formData.submitted}
+      {if $formData.submitted|default:false}
         <div class="messages status">
-          <p>{$formData.message}</p>
+          <p>{$formData.message|default:'Form submitted successfully!'}</p>
         </div>
       {/if}
       
