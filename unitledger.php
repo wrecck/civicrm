@@ -113,7 +113,7 @@ function unitledger_get_case_ledger_data($caseId) {
 
 /**
  * Implements hook_civicrm_alterMenu().
- * Registers a route for the standalone Unit Ledger page.
+ * Registers routes for the Unit Ledger pages.
  */
 function unitledger_civicrm_alterMenu(&$items) {
 	$items['civicrm/unitledger'] = [
@@ -129,8 +129,15 @@ function unitledger_civicrm_alterMenu(&$items) {
 		'is_public' => 0,
 	];
 	
-	// Debug: Log that the route is being registered
-	CRM_Core_Error::debug_log_message('UnitLedger: Registering routes civicrm/unitledger and civicrm/unit-ledger');
+	// CSV Upload page route
+	$items['civicrm/unitledger/csv-upload'] = [
+		'page_callback' => 'CRM_UnitLedger_Page_CsvUpload',
+		'access_arguments' => ['access CiviCRM'],
+		'is_public' => 0,
+	];
+	
+	// Debug: Log that the routes are being registered
+	CRM_Core_Error::debug_log_message('UnitLedger: Registering routes civicrm/unitledger, civicrm/unit-ledger, and civicrm/unitledger/csv-upload');
 }
 
 

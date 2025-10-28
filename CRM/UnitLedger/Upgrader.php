@@ -68,11 +68,11 @@ class CRM_UnitLedger_Upgrader extends CRM_Extension_Upgrader_Base {
   }
 
   /**
-   * Add Unit Ledger menu item under Reports
+   * Add Unit Ledger menu items
    */
   private function addUnitLedgerMenu() {
-    // First, delete any existing entry
-    CRM_Core_DAO::executeQuery("DELETE FROM `civicrm_navigation` WHERE name = 'unit_ledger'");
+    // First, delete any existing entries
+    CRM_Core_DAO::executeQuery("DELETE FROM `civicrm_navigation` WHERE name IN ('unit_ledger', 'unit_ledger_csv_upload')");
     
     // Get the Reports menu ID - we know it's 230 from the database query
     $reportsNavId = 230;
@@ -88,7 +88,7 @@ class CRM_UnitLedger_Upgrader extends CRM_Extension_Upgrader_Base {
     
     CRM_Core_Error::debug_log_message('UnitLedger: Using Reports menu ID: ' . $reportsNavId);
     
-    // Create navigation entry using direct SQL insert (like Pivot Report does)
+    // Create Unit Ledger navigation entry under Reports
     $sql = "INSERT INTO civicrm_navigation 
             (domain_id, label, name, url, permission, permission_operator, parent_id, is_active, has_separator, weight) 
             VALUES (1, 'Unit Ledger', 'unit_ledger', 'civicrm/unitledger', 'access CiviCRM', 'AND', %1, 1, 0, 1)";
@@ -96,10 +96,33 @@ class CRM_UnitLedger_Upgrader extends CRM_Extension_Upgrader_Base {
     $params = [1 => [$reportsNavId, 'Integer']];
     CRM_Core_DAO::executeQuery($sql, $params);
     
+    // Find Case Reports menu ID (should be under Cases)
+    $caseReportsId = CRM_Core_DAO::singleValueQuery("
+      SELECT id FROM civicrm_navigation 
+      WHERE name = 'Case Reports' AND parent_id IN (
+        SELECT id FROM civicrm_navigation WHERE name = 'Cases'
+      ) 
+      LIMIT 1
+    ");
+    
+    if ($caseReportsId) {
+      // Create CSV Upload navigation entry under Case Reports
+      $sql = "INSERT INTO civicrm_navigation 
+              (domain_id, label, name, url, permission, permission_operator, parent_id, is_active, has_separator, weight) 
+              VALUES (1, 'FCS Authorization Upload', 'unit_ledger_csv_upload', 'civicrm/unitledger/csv-upload', 'access CiviCRM', 'AND', %1, 1, 0, 1)";
+      
+      $params = [1 => [$caseReportsId, 'Integer']];
+      CRM_Core_DAO::executeQuery($sql, $params);
+      
+      CRM_Core_Error::debug_log_message('UnitLedger: Added CSV Upload menu item under Case Reports (ID: ' . $caseReportsId . ')');
+    } else {
+      CRM_Core_Error::debug_log_message('UnitLedger: Case Reports menu not found');
+    }
+    
     // Reset navigation cache
     CRM_Core_BAO_Navigation::resetNavigation();
     
-    CRM_Core_Error::debug_log_message('UnitLedger: Added Unit Ledger menu item under Reports');
+    CRM_Core_Error::debug_log_message('UnitLedger: Added Unit Ledger menu items');
   }
 
   /**
@@ -109,7 +132,7 @@ class CRM_UnitLedger_Upgrader extends CRM_Extension_Upgrader_Base {
     $sql = "DELETE FROM civirule_action WHERE name = 'unitledger_post_delta'";
     CRM_Core_DAO::executeQuery($sql);
     
-    $sql = "DELETE FROM civicrm_navigation WHERE name = 'unit_ledger'";
+    $sql = "DELETE FROM civicrm_navigation WHERE name IN ('unit_ledger', 'unit_ledger_csv_upload')";
     CRM_Core_DAO::executeQuery($sql);
     
     $sql = "DROP TABLE IF EXISTS civicrm_unit_ledger";
