@@ -72,36 +72,29 @@ class CRM_UnitLedger_Upgrader extends CRM_Extension_Upgrader_Base {
    */
   private function addUnitLedgerMenu() {
     // First, delete any existing entry
-    CRM_Core_DAO::executeQuery("DELETE FROM `civicrm_navigation` WHERE name = 'unit_ledger' and parent_id IS NULL");
+    CRM_Core_DAO::executeQuery("DELETE FROM `civicrm_navigation` WHERE name = 'unit_ledger'");
     
-    // Get the Reports menu ID
-    $reportsNavId = CRM_Core_DAO::getFieldValue('CRM_Core_DAO_Navigation', 'Reports', 'id', 'name');
+    // Get the Reports menu ID - we know it's 230 from the database query
+    $reportsNavId = 230;
     
-    if (!$reportsNavId) {
-      // If Reports doesn't exist, try to find it by label
-      $reportsNavId = CRM_Core_DAO::getFieldValue('CRM_Core_DAO_Navigation', 'Reports', 'id', 'label');
-    }
+    // Verify the Reports menu exists
+    $sql = "SELECT id FROM civicrm_navigation WHERE id = %1 AND name = 'Reports'";
+    $exists = CRM_Core_DAO::singleValueQuery($sql, [1 => [$reportsNavId, 'Integer']]);
     
-    if (!$reportsNavId) {
-      CRM_Core_Error::debug_log_message('UnitLedger: Could not find Reports menu item');
+    if (!$exists) {
+      CRM_Core_Error::debug_log_message('UnitLedger: Reports menu (ID 230) not found');
       return;
     }
     
-    // Create navigation entry
-    $navigation = new CRM_Core_DAO_Navigation();
-    $params = array(
-      'domain_id'  => CRM_Core_Config::domainID(),
-      'label'      => E::ts('Unit Ledger'),
-      'name'       => 'unit_ledger',
-      'url'        => 'civicrm/unitledger',
-      'parent_id'  => $reportsNavId,
-      'weight'     => 0,
-      'permission' => 'access CiviCRM',
-      'separator'  => 1,
-      'is_active'  => 1
-    );
-    $navigation->copyValues($params);
-    $navigation->save();
+    CRM_Core_Error::debug_log_message('UnitLedger: Using Reports menu ID: ' . $reportsNavId);
+    
+    // Create navigation entry using direct SQL insert (like Pivot Report does)
+    $sql = "INSERT INTO civicrm_navigation 
+            (domain_id, label, name, url, permission, permission_operator, parent_id, is_active, has_separator, weight) 
+            VALUES (1, 'Unit Ledger', 'unit_ledger', 'civicrm/unitledger', 'access CiviCRM', 'AND', %1, 1, 0, 1)";
+    
+    $params = [1 => [$reportsNavId, 'Integer']];
+    CRM_Core_DAO::executeQuery($sql, $params);
     
     // Reset navigation cache
     CRM_Core_BAO_Navigation::resetNavigation();
