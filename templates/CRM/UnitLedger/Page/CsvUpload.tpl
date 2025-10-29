@@ -52,11 +52,27 @@
         <div class="help">
           <p>{ts}Please ensure your CSV file contains the following columns:{/ts}</p>
           <ul>
-            <li>{ts}Contact ID or Email{/ts}</li>
-            <li>{ts}Case ID{/ts}</li>
-            <li>{ts}Activity Type{/ts}</li>
-            <li>{ts}Units Allocated{/ts}</li>
-            <li>{ts}Date{/ts}</li>
+            <li>{ts}Assessment ID{/ts}</li>
+            <li>{ts}Reauth (R1, R2){/ts}</li>
+            <li>{ts}Service Type{/ts}</li>
+            <li>{ts}Referring Agency Name{/ts}</li>
+            <li>{ts}Client First Name{/ts}</li>
+            <li>{ts}Client Last Name{/ts}</li>
+            <li>{ts}DOB{/ts}</li>
+            <li>{ts}ProviderOne Number{/ts}</li>
+            <li>{ts}Client Mailing Address{/ts}</li>
+            <li>{ts}City{/ts}</li>
+            <li>{ts}State{/ts}</li>
+            <li>{ts}Client Contact Number{/ts}</li>
+            <li>{ts}Medicaid Eligibility Determination{/ts}</li>
+            <li>{ts}Health Needs-Based Criteria{/ts}</li>
+            <li>{ts}Risk Factors{/ts}</li>
+            <li>{ts}Assigned Provider Name{/ts}</li>
+            <li>{ts}Enrollment Status{/ts}</li>
+            <li>{ts}Notes{/ts}</li>
+            <li>{ts}Benefit Limitation (180 Day Period){/ts}</li>
+            <li>{ts}Auth Start Date{/ts}</li>
+            <li>{ts}Auth End Date{/ts}</li>
           </ul>
           <p><strong>{ts}Note:{/ts}</strong> {ts}Upload functionality is not yet implemented. This is a form preview only.{/ts}</p>
         </div>
