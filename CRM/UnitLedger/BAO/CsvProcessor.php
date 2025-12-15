@@ -141,6 +141,18 @@ class CRM_UnitLedger_BAO_CsvProcessor {
 
     CRM_Core_Error::debug_log_message('UnitLedger CSV: Row ' . $rowNum . ' - Contact ID: ' . $contactId . ', Assessment ID: ' . $assessmentId . ', Service Type: ' . $serviceType);
 
+    // Get assignee contact ID from Assigned Provider Name (for Open Case field)
+    $assigneeContactId = NULL;
+    $assignedProviderName = trim($rowData['Assigned Provider Name'] ?? '');
+    if (!empty($assignedProviderName)) {
+      $assigneeContactId = self::findContactByName($assignedProviderName);
+      if ($assigneeContactId) {
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Row ' . $rowNum . ' - Found assignee contact ID: ' . $assigneeContactId . ' for provider: ' . $assignedProviderName);
+      } else {
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Row ' . $rowNum . ' - Could not find assignee contact for provider: ' . $assignedProviderName);
+      }
+    }
+
     // Find or create case (determine case type from Service Type)
     $caseResult = self::findOrCreateCase($contactId, $assessmentId, $rowData, $serviceType);
     if (!$caseResult['success']) {
@@ -154,9 +166,9 @@ class CRM_UnitLedger_BAO_CsvProcessor {
 
     CRM_Core_Error::debug_log_message('UnitLedger CSV: Row ' . $rowNum . ' - Case ID: ' . $caseId . ' (' . ($isNew ? 'created' : 'updated') . ')');
 
-    // Update case with CSV data
+    // Update case with CSV data and assignee contact ID
     try {
-      self::updateCaseFields($caseId, $rowData);
+      self::updateCaseFields($caseId, $rowData, $assigneeContactId);
       CRM_Core_Error::debug_log_message('UnitLedger CSV: Row ' . $rowNum . ' - Successfully updated case fields');
     } catch (Exception $e) {
       CRM_Core_Error::debug_log_message('UnitLedger CSV: Row ' . $rowNum . ' - Error updating case fields: ' . $e->getMessage());
@@ -443,8 +455,9 @@ class CRM_UnitLedger_BAO_CsvProcessor {
    *
    * @param int $caseId
    * @param array $rowData CSV row data
+   * @param int|null $assigneeContactId Assignee contact ID for Open Case field
    */
-  private static function updateCaseFields($caseId, $rowData) {
+  private static function updateCaseFields($caseId, $rowData, $assigneeContactId = NULL) {
     // Determine case type to use correct field labels
     $serviceType = trim($rowData['Service Type'] ?? '');
     $prefix = 'Housing'; // Default
@@ -465,6 +478,34 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       'Auth Start Date' => $prefix . ' Auth Start Date',
       'Auth End Date' => $prefix . ' Auth End Date',
     ];
+    
+    // Add Open Case field mapping if assignee contact ID is provided
+    if ($assigneeContactId) {
+      // Try to find the Open Case field
+      $openCaseFieldLabels = [
+        $prefix . ' Open Case',
+        'Open Case',
+        $prefix . ' Case Manager',
+        'Case Manager',
+      ];
+      
+      $openCaseFieldName = NULL;
+      foreach ($openCaseFieldLabels as $label) {
+        $openCaseFieldName = self::getCustomFieldName($label);
+        if ($openCaseFieldName) {
+          CRM_Core_Error::debug_log_message('UnitLedger CSV: Found Open Case field "' . $label . '" as ' . $openCaseFieldName);
+          break;
+        }
+      }
+      
+      if ($openCaseFieldName) {
+        $fieldMappings['Open Case (Assignee)'] = $openCaseFieldName;
+        // Store the assignee contact ID as the value for this field
+        $rowData['Open Case (Assignee)'] = $assigneeContactId;
+      } else {
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Open Case field not found for prefix: ' . $prefix);
+      }
+    }
 
     // Try API first, then fall back to direct SQL
     $updateParams = ['id' => $caseId];
@@ -478,6 +519,11 @@ class CRM_UnitLedger_BAO_CsvProcessor {
           // Handle date fields specially
           if (strpos($fieldLabel, 'Date') !== false) {
             $value = self::parseDate($value);
+          } 
+          // Handle Open Case field - it's already a contact ID, use as-is
+          elseif ($csvColumn === 'Open Case (Assignee)') {
+            $value = (int) $value; // Ensure it's an integer
+            CRM_Core_Error::debug_log_message('UnitLedger CSV: Setting Open Case field to contact ID: ' . $value);
           } else {
             // Convert value based on field type (contact reference, option value, etc.)
             $value = self::convertFieldValue($customFieldName, $value, 'Case');
