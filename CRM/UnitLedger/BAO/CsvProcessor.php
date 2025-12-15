@@ -567,8 +567,12 @@ class CRM_UnitLedger_BAO_CsvProcessor {
     }
 
     // Prepare activity creation parameters
+    // Use current date and time for the activity Date field
+    $currentDateTime = date('Y-m-d H:i:s');
     $authStartDate = self::parseDate($rowData['Auth Start Date'] ?? '');
     $authEndDate = self::parseDate($rowData['Auth End Date'] ?? '');
+    
+    CRM_Core_Error::debug_log_message('UnitLedger CSV: Using current date/time for activity: ' . $currentDateTime);
     
     $createParams = [
       'activity_type_id' => $activityTypeId,
@@ -576,7 +580,7 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       'target_contact_id' => $contactId,
       'subject' => $fieldPrefix . ' Authorization - ' . ($rowData['Assessment ID'] ?? ''),
       'status_id' => 'Completed',
-      'activity_date_time' => $authStartDate ?: date('Y-m-d H:i:s'),
+      'activity_date_time' => $currentDateTime, // Use current date/time
       'case_id' => $caseId,
     ];
 
@@ -646,24 +650,33 @@ class CRM_UnitLedger_BAO_CsvProcessor {
     ];
 
     // Add custom fields to activity
+    CRM_Core_Error::debug_log_message('UnitLedger CSV: Processing ' . count($fieldMappings) . ' custom fields for activity');
+    $fieldsFound = 0;
+    $fieldsNotFound = 0;
+    
     foreach ($fieldMappings as $csvColumn => $fieldLabelVariations) {
       $value = trim($rowData[$csvColumn] ?? '');
       if ($value !== '') {
         $customFieldName = NULL;
+        $matchedLabel = NULL;
         
         // Try each field label variation
         if (is_array($fieldLabelVariations)) {
           foreach ($fieldLabelVariations as $fieldLabel) {
             $customFieldName = self::getActivityCustomFieldName($fieldLabel);
             if ($customFieldName) {
+              $matchedLabel = $fieldLabel;
               break; // Found it, stop searching
             }
           }
         } else {
           $customFieldName = self::getActivityCustomFieldName($fieldLabelVariations);
+          $matchedLabel = $fieldLabelVariations;
         }
         
         if ($customFieldName) {
+          $fieldsFound++;
+          CRM_Core_Error::debug_log_message('UnitLedger CSV: Found field for CSV column "' . $csvColumn . '" -> ' . $matchedLabel . ' = ' . $customFieldName);
           // Handle date fields specially
           if (stripos($csvColumn, 'Date') !== false) {
             $value = self::parseDate($value);
@@ -696,11 +709,14 @@ class CRM_UnitLedger_BAO_CsvProcessor {
           }
         } else {
           // Log when field is not found (for debugging)
+          $fieldsNotFound++;
           $labelToTry = is_array($fieldLabelVariations) ? $fieldLabelVariations[0] : $fieldLabelVariations;
-          CRM_Core_Error::debug_log_message('UnitLedger CSV: Activity custom field not found for: ' . $labelToTry . ' (CSV column: ' . $csvColumn . ')');
+          CRM_Core_Error::debug_log_message('UnitLedger CSV: Activity custom field not found for: ' . $labelToTry . ' (CSV column: ' . $csvColumn . ', value: "' . $value . '")');
         }
       }
     }
+    
+    CRM_Core_Error::debug_log_message('UnitLedger CSV: Custom fields summary - Found: ' . $fieldsFound . ', Not found: ' . $fieldsNotFound . ', Total params: ' . count($createParams));
 
     // Create the activity
     try {
@@ -740,20 +756,32 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       
       CRM_Core_Error::debug_log_message('UnitLedger CSV: Created basic activity ID: ' . $activityId);
       
-      // Now update with custom fields one by one to handle errors gracefully
+      // Now update with all custom fields at once
       $customFields = array_diff_key($createParams, $basicParams);
-      foreach ($customFields as $fieldName => $fieldValue) {
+      if (!empty($customFields)) {
         try {
-          $updateParams = [
-            'id' => $activityId,
-            $fieldName => $fieldValue,
-          ];
-          civicrm_api3('Activity', 'create', $updateParams);
-          CRM_Core_Error::debug_log_message('UnitLedger CSV: Successfully set field ' . $fieldName);
+          $updateParams = array_merge(['id' => $activityId], $customFields);
+          CRM_Core_Error::debug_log_message('UnitLedger CSV: Updating activity with ' . count($customFields) . ' custom fields');
+          $updateResult = civicrm_api3('Activity', 'create', $updateParams);
+          CRM_Core_Error::debug_log_message('UnitLedger CSV: Successfully updated activity with custom fields');
         } catch (Exception $e) {
-          CRM_Core_Error::debug_log_message('UnitLedger CSV: Error setting field ' . $fieldName . ': ' . $e->getMessage() . ' - Skipping this field');
-          // Continue with other fields
+          CRM_Core_Error::debug_log_message('UnitLedger CSV: Error updating activity with custom fields: ' . $e->getMessage());
+          // Try updating fields one by one as fallback
+          foreach ($customFields as $fieldName => $fieldValue) {
+            try {
+              $singleUpdateParams = [
+                'id' => $activityId,
+                $fieldName => $fieldValue,
+              ];
+              civicrm_api3('Activity', 'create', $singleUpdateParams);
+              CRM_Core_Error::debug_log_message('UnitLedger CSV: Successfully set field ' . $fieldName);
+            } catch (Exception $e2) {
+              CRM_Core_Error::debug_log_message('UnitLedger CSV: Error setting field ' . $fieldName . ': ' . $e2->getMessage() . ' - Skipping this field');
+            }
+          }
         }
+      } else {
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: No custom fields to update');
       }
       
       CRM_Core_Error::debug_log_message('UnitLedger CSV: Successfully created activity ID: ' . $activityId . ' with custom fields');
@@ -864,13 +892,15 @@ class CRM_UnitLedger_BAO_CsvProcessor {
     }
 
     try {
+      // Try exact match first (without activity type filter to catch all activity fields)
       $sql = "
-        SELECT cf.id, cf.column_name 
+        SELECT cf.id, cf.column_name, cg.name as group_name, cg.extends_entity_column_value
         FROM civicrm_custom_field cf
         JOIN civicrm_custom_group cg ON cf.custom_group_id = cg.id
         WHERE cf.label = %1 
           AND cg.is_active = 1
           AND cg.extends = 'Activity'
+        ORDER BY CASE WHEN cg.extends_entity_column_value IS NULL THEN 0 ELSE 1 END
         LIMIT 1
       ";
 
@@ -880,8 +910,38 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       if ($dao->fetch()) {
         $fieldName = 'custom_' . $dao->id;
         $fieldCache[$label] = $fieldName;
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Found activity custom field "' . $label . '" as ' . $fieldName . ' in group ' . $dao->group_name);
         return $fieldName;
       }
+      
+      // Try partial match (label contains search term or vice versa)
+      $sql = "
+        SELECT cf.id, cf.column_name, cf.label, cg.name as group_name, cg.extends_entity_column_value
+        FROM civicrm_custom_field cf
+        JOIN civicrm_custom_group cg ON cf.custom_group_id = cg.id
+        WHERE cg.is_active = 1
+          AND cg.extends = 'Activity'
+          AND (cf.label LIKE %1 OR %2 LIKE CONCAT('%%', cf.label, '%%'))
+        ORDER BY CASE WHEN cf.label = %2 THEN 0 ELSE 1 END, 
+                 CASE WHEN cg.extends_entity_column_value IS NULL THEN 0 ELSE 1 END,
+                 LENGTH(cf.label) DESC
+        LIMIT 1
+      ";
+
+      $params = [
+        1 => ['%' . $label . '%', 'String'],
+        2 => [$label, 'String'],
+      ];
+      $dao = CRM_Core_DAO::executeQuery($sql, $params);
+
+      if ($dao->fetch()) {
+        $fieldName = 'custom_' . $dao->id;
+        $fieldCache[$label] = $fieldName;
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Found activity custom field "' . $label . '" via partial match as ' . $fieldName . ' (actual label: "' . $dao->label . '") in group ' . $dao->group_name);
+        return $fieldName;
+      }
+      
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Activity custom field not found for label: ' . $label);
     } catch (Exception $e) {
       CRM_Core_Error::debug_log_message('UnitLedger CSV: Error finding activity custom field: ' . $e->getMessage());
     }
