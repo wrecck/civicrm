@@ -598,8 +598,12 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       'Reauth (R1, R2)' => [
         $fieldPrefix . ' Reauth',
         $fieldPrefix . ' Reauth?',
+        $fieldPrefix . ' Reauth (R1, R2)',
         'Reauth',
         'Reauth?',
+        'Reauth (R1, R2)',
+        'Housing Reauth',
+        'Employment Reauth',
       ],
       'Service Type' => [
         $fieldPrefix . ' Service Type',
@@ -696,15 +700,22 @@ class CRM_UnitLedger_BAO_CsvProcessor {
             $originalValue = $value;
             $value = self::convertFieldValue($customFieldName, $value, 'Activity');
             if ($value === NULL && $originalValue !== '') {
-              // Conversion failed, log and skip this field
-              $labelToTry = is_array($fieldLabelVariations) ? $fieldLabelVariations[0] : $fieldLabelVariations;
-              CRM_Core_Error::debug_log_message('UnitLedger CSV: Could not convert value "' . $originalValue . '" for field "' . $labelToTry . '", skipping');
-              continue;
+              // Conversion failed - check if it's an option value field
+              $fieldInfo = self::getCustomFieldInfo($customFieldName, 'Activity');
+              if ($fieldInfo && !empty($fieldInfo['option_group_id'])) {
+                // It's an option value field - try to find by partial match or skip
+                CRM_Core_Error::debug_log_message('UnitLedger CSV: Option value not found for "' . $originalValue . '" in field "' . $customFieldName . '", will skip this field');
+                continue;
+              } else {
+                // Not an option value field, might be text - use original value
+                $value = $originalValue;
+                CRM_Core_Error::debug_log_message('UnitLedger CSV: Using original value for field ' . $customFieldName . ': ' . $value);
+              }
             }
           }
           
           // Only add if value is not NULL
-          if ($value !== NULL) {
+          if ($value !== NULL && $value !== '') {
             $createParams[$customFieldName] = $value;
           }
         } else {
@@ -759,26 +770,52 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       // Now update with all custom fields at once
       $customFields = array_diff_key($createParams, $basicParams);
       if (!empty($customFields)) {
-        try {
-          $updateParams = array_merge(['id' => $activityId], $customFields);
-          CRM_Core_Error::debug_log_message('UnitLedger CSV: Updating activity with ' . count($customFields) . ' custom fields');
-          $updateResult = civicrm_api3('Activity', 'create', $updateParams);
-          CRM_Core_Error::debug_log_message('UnitLedger CSV: Successfully updated activity with custom fields');
-        } catch (Exception $e) {
-          CRM_Core_Error::debug_log_message('UnitLedger CSV: Error updating activity with custom fields: ' . $e->getMessage());
-          // Try updating fields one by one as fallback
-          foreach ($customFields as $fieldName => $fieldValue) {
-            try {
-              $singleUpdateParams = [
-                'id' => $activityId,
-                $fieldName => $fieldValue,
-              ];
-              civicrm_api3('Activity', 'create', $singleUpdateParams);
-              CRM_Core_Error::debug_log_message('UnitLedger CSV: Successfully set field ' . $fieldName);
-            } catch (Exception $e2) {
-              CRM_Core_Error::debug_log_message('UnitLedger CSV: Error setting field ' . $fieldName . ': ' . $e2->getMessage() . ' - Skipping this field');
+        // Filter out fields that might cause validation errors
+        $safeFields = [];
+        $problemFields = [];
+        
+        foreach ($customFields as $fieldName => $fieldValue) {
+          // Check if this is an option value field that might fail
+          $fieldInfo = self::getCustomFieldInfo($fieldName, 'Activity');
+          if ($fieldInfo && !empty($fieldInfo['option_group_id']) && !is_numeric($fieldValue)) {
+            // It's an option value field with a non-numeric value - verify it's valid
+            $optionValueId = self::getOptionValueId($fieldInfo['option_group_id'], $fieldValue);
+            if ($optionValueId) {
+              $safeFields[$fieldName] = $optionValueId;
+            } else {
+              $problemFields[$fieldName] = $fieldValue;
+              CRM_Core_Error::debug_log_message('UnitLedger CSV: Option value not found for field ' . $fieldName . ' with value "' . $fieldValue . '", will skip');
+            }
+          } else {
+            // Not an option value field or already numeric - safe to include
+            $safeFields[$fieldName] = $fieldValue;
+          }
+        }
+        
+        if (!empty($safeFields)) {
+          try {
+            $updateParams = array_merge(['id' => $activityId], $safeFields);
+            CRM_Core_Error::debug_log_message('UnitLedger CSV: Updating activity with ' . count($safeFields) . ' safe custom fields (skipped ' . count($problemFields) . ' problematic fields)');
+            $updateResult = civicrm_api3('Activity', 'create', $updateParams);
+            CRM_Core_Error::debug_log_message('UnitLedger CSV: Successfully updated activity with custom fields');
+          } catch (Exception $e) {
+            CRM_Core_Error::debug_log_message('UnitLedger CSV: Error updating activity with custom fields: ' . $e->getMessage());
+            // Try updating fields one by one as fallback
+            foreach ($safeFields as $fieldName => $fieldValue) {
+              try {
+                $singleUpdateParams = [
+                  'id' => $activityId,
+                  $fieldName => $fieldValue,
+                ];
+                civicrm_api3('Activity', 'create', $singleUpdateParams);
+                CRM_Core_Error::debug_log_message('UnitLedger CSV: Successfully set field ' . $fieldName);
+              } catch (Exception $e2) {
+                CRM_Core_Error::debug_log_message('UnitLedger CSV: Error setting field ' . $fieldName . ': ' . $e2->getMessage() . ' - Skipping this field');
+              }
             }
           }
+        } else {
+          CRM_Core_Error::debug_log_message('UnitLedger CSV: No safe custom fields to update (all fields had validation issues)');
         }
       } else {
         CRM_Core_Error::debug_log_message('UnitLedger CSV: No custom fields to update');
