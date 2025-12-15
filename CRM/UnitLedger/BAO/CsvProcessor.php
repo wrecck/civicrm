@@ -579,7 +579,7 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       'source_contact_id' => $sourceContactId,
       'target_contact_id' => $contactId,
       'subject' => $fieldPrefix . ' Authorization - ' . ($rowData['Assessment ID'] ?? ''),
-      'status_id' => 'Completed',
+      'status_id' => 'Available', // Changed from 'Completed' to 'Available'
       'activity_date_time' => $currentDateTime, // Use current date/time
       'case_id' => $caseId,
     ];
@@ -604,22 +604,21 @@ class CRM_UnitLedger_BAO_CsvProcessor {
     ];
     
     // FCS Employment Authorization (Allocation) custom fields
-    // Note: These might be different - using same IDs for now, adjust if needed
     $employmentFieldMap = [
-      'Assessment ID' => 'custom_348', // Adjust if different
-      'ProviderOne Number' => 'custom_349', // Adjust if different
-      'Reauth (R1, R2)' => 'custom_350', // Adjust if different
-      'Service Type' => 'custom_351', // Adjust if different
-      'Referring Agency Name' => 'custom_352', // Adjust if different
-      'Medicaid Eligibility Determination' => 'custom_353', // Adjust if different
-      'Health Needs-Based Criteria' => 'custom_354', // Adjust if different
-      'Risk Factors' => 'custom_355', // Adjust if different
-      'Assigned Provider Name' => 'custom_356', // Adjust if different
-      'Enrollment Status' => 'custom_357', // Adjust if different
-      'Notes' => 'custom_358', // Adjust if different
-      'Benefit Limitation (180 Day Period)' => 'custom_359', // Adjust if different
-      'Auth Start Date' => 'custom_360', // Adjust if different
-      'Auth End Date' => 'custom_361', // Adjust if different
+      'Assessment ID' => 'custom_334',
+      'ProviderOne Number' => 'custom_347',
+      'Reauth (R1, R2)' => 'custom_335',
+      'Service Type' => 'custom_336',
+      'Referring Agency Name' => 'custom_337',
+      'Medicaid Eligibility Determination' => 'custom_338',
+      'Health Needs-Based Criteria' => 'custom_339',
+      'Risk Factors' => 'custom_340',
+      'Assigned Provider Name' => 'custom_341',
+      'Enrollment Status' => 'custom_342',
+      'Notes' => 'custom_343',
+      'Benefit Limitation (180 Day Period)' => 'custom_344',
+      'Auth Start Date' => 'custom_345',
+      'Auth End Date' => 'custom_346',
     ];
     
     // Use appropriate field map based on prefix
