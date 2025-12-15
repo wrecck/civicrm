@@ -466,37 +466,30 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       $prefix = 'Employment';
     }
     
-    // Map CSV columns to case custom fields using direct field IDs
-    // Employment case fields (FCS Case Profile - ending in _78)
-    $employmentFieldMap = [
-      'Assessment ID' => 'custom_19',
+    // Map CSV columns to case custom fields
+    // Use dynamic label lookup for fields that may have variable IDs (Assessment ID, Reauth, Enrollment Status)
+    // Use direct field IDs for fields that are more stable
+    
+    // Fields that need dynamic lookup by label (IDs can vary)
+    $dynamicFields = [
+      'Assessment ID' => $prefix . ' Assessment ID',
+      'Reauth (R1, R2)' => $prefix . ' Reauth',
+      'Enrollment Status' => $prefix . ' Enrollment Status',
+    ];
+    
+    // Fields with stable IDs (use direct field IDs)
+    $staticFieldMap = [
       'Medicaid Eligibility Determination' => 'custom_104',
-      'Reauth (R1, R2)' => 'custom_20',
       'Health Needs-Based Criteria' => 'custom_21',
       'Risk Factors' => 'custom_22',
-      'Enrollment Status' => 'custom_23',
       'Assigned Provider Name' => 'custom_25',
       'Notes' => 'custom_26',
       'Auth Start Date' => 'custom_27',
       'Auth End Date' => 'custom_28',
     ];
     
-    // Housing case fields (FCS Case Profile - ending in _79)
-    $housingFieldMap = [
-      'Assessment ID' => 'custom_19',
-      'Medicaid Eligibility Determination' => 'custom_104',
-      'Reauth (R1, R2)' => 'custom_20',
-      'Health Needs-Based Criteria' => 'custom_21',
-      'Risk Factors' => 'custom_22',
-      'Enrollment Status' => 'custom_23',
-      'Assigned Provider Name' => 'custom_25',
-      'Notes' => 'custom_26',
-      'Auth Start Date' => 'custom_27',
-      'Auth End Date' => 'custom_28',
-    ];
-    
-    // Use appropriate field map based on prefix
-    $fieldMappings = ($prefix === 'Housing') ? $housingFieldMap : $employmentFieldMap;
+    // Combine dynamic and static field mappings
+    $fieldMappings = array_merge($dynamicFields, $staticFieldMap);
     
     // For Employment cases, add Employment Units fields
     if ($prefix === 'Employment') {
