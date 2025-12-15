@@ -292,7 +292,8 @@ class CRM_UnitLedger_BAO_CsvProcessor {
     }
     
     // Try to find existing case by Assessment ID using direct SQL query
-    $customFieldName = self::getCustomFieldName($fieldPrefix . ' Assessment ID');
+    // Specify 'Case' entity type to ensure we get the case custom field, not activity field
+    $customFieldName = self::getCustomFieldName($fieldPrefix . ' Assessment ID', 'Case');
     if ($customFieldName) {
       try {
         $fieldId = str_replace('custom_', '', $customFieldName);
@@ -479,6 +480,46 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       'Auth End Date' => $prefix . ' Auth End Date',
     ];
     
+    // For Employment cases, add Employment Units fields
+    if ($prefix === 'Employment') {
+      $benefitLimitation = trim($rowData['Benefit Limitation (180 Day Period)'] ?? '');
+      if (!empty($benefitLimitation)) {
+        $benefitLimitationValue = (int) $benefitLimitation;
+        
+        // Add Employment Units fields using direct field IDs
+        $fieldMappings['Total Employment Units Allocated'] = 'custom_314';
+        $fieldMappings['Total Employment Units Delivered'] = 'custom_315';
+        $fieldMappings['Total Employment Units Remaining'] = 'custom_316';
+        
+        // Store values for these fields
+        $rowData['Total Employment Units Allocated'] = $benefitLimitationValue;
+        $rowData['Total Employment Units Delivered'] = 0;
+        $rowData['Total Employment Units Remaining'] = $benefitLimitationValue;
+        
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Setting Employment Units fields - Allocated: ' . $benefitLimitationValue . ', Delivered: 0, Remaining: ' . $benefitLimitationValue);
+      }
+    }
+    
+    // For Housing cases, add Housing Units fields
+    if ($prefix === 'Housing') {
+      $benefitLimitation = trim($rowData['Benefit Limitation (180 Day Period)'] ?? '');
+      if (!empty($benefitLimitation)) {
+        $benefitLimitationValue = (int) $benefitLimitation;
+        
+        // Add Housing Units fields using direct field IDs
+        $fieldMappings['Total Housing Units Allocated'] = 'custom_311';
+        $fieldMappings['Total Housing Units Delivered'] = 'custom_312';
+        $fieldMappings['Total Housing Units Remaining'] = 'custom_313';
+        
+        // Store values for these fields
+        $rowData['Total Housing Units Allocated'] = $benefitLimitationValue;
+        $rowData['Total Housing Units Delivered'] = 0;
+        $rowData['Total Housing Units Remaining'] = $benefitLimitationValue;
+        
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Setting Housing Units fields - Allocated: ' . $benefitLimitationValue . ', Delivered: 0, Remaining: ' . $benefitLimitationValue);
+      }
+    }
+    
     // Add Open Case field mapping if assignee contact ID is provided
     if ($assigneeContactId) {
       // Try to find the Open Case field
@@ -513,8 +554,17 @@ class CRM_UnitLedger_BAO_CsvProcessor {
 
     foreach ($fieldMappings as $csvColumn => $fieldLabel) {
       $value = trim($rowData[$csvColumn] ?? '');
-      if ($value !== '') {
-        $customFieldName = self::getCustomFieldName($fieldLabel);
+      if ($value !== '' || $csvColumn === 'Total Employment Units Delivered' || $csvColumn === 'Total Housing Units Delivered') { // Allow 0 for Delivered fields
+        // Check if this is a direct field ID (like custom_314) or needs lookup by label
+        $customFieldName = NULL;
+        if (preg_match('/^custom_\d+$/', $fieldLabel)) {
+          // It's already a direct field ID (e.g., custom_314)
+          $customFieldName = $fieldLabel;
+        } else {
+          // Look up by label
+          $customFieldName = self::getCustomFieldName($fieldLabel, 'Case');
+        }
+        
         if ($customFieldName) {
           // Handle date fields specially
           if (strpos($fieldLabel, 'Date') !== false) {
@@ -524,6 +574,13 @@ class CRM_UnitLedger_BAO_CsvProcessor {
           elseif ($csvColumn === 'Open Case (Assignee)') {
             $value = (int) $value; // Ensure it's an integer
             CRM_Core_Error::debug_log_message('UnitLedger CSV: Setting Open Case field to contact ID: ' . $value);
+          }
+          // Handle Units fields (both Housing and Employment) - they're numeric, use as-is
+          elseif (stripos($csvColumn, 'Units Allocated') !== false || 
+                  stripos($csvColumn, 'Units Delivered') !== false || 
+                  stripos($csvColumn, 'Units Remaining') !== false) {
+            $value = (int) $value; // Ensure it's an integer
+            CRM_Core_Error::debug_log_message('UnitLedger CSV: Setting ' . $csvColumn . ' (' . $customFieldName . ') to: ' . $value);
           } else {
             // Convert value based on field type (contact reference, option value, etc.)
             $value = self::convertFieldValue($customFieldName, $value, 'Case');
@@ -1015,28 +1072,47 @@ class CRM_UnitLedger_BAO_CsvProcessor {
    * @param string $label
    * @return string|null
    */
-  private static function getCustomFieldName($label) {
+  /**
+   * Get custom field name by label
+   * 
+   * @param string $label Field label
+   * @param string $entityType Optional: 'Case' or 'Activity' to filter by entity type
+   * @return string|null Custom field name like 'custom_123'
+   */
+  private static function getCustomFieldName($label, $entityType = NULL) {
     static $fieldCache = [];
+    $cacheKey = $label . ($entityType ? '_' . $entityType : '');
 
-    if (isset($fieldCache[$label])) {
-      return $fieldCache[$label];
+    if (isset($fieldCache[$cacheKey])) {
+      return $fieldCache[$cacheKey];
     }
 
     try {
       $sql = "
-        SELECT cf.id, cf.column_name 
+        SELECT cf.id, cf.column_name, cg.extends
         FROM civicrm_custom_field cf
         JOIN civicrm_custom_group cg ON cf.custom_group_id = cg.id
-        WHERE cf.label = %1 AND cg.is_active = 1
-        LIMIT 1
+        WHERE cf.label = %1 
+          AND cg.is_active = 1
+          AND cf.is_active = 1
       ";
-
+      
       $params = [1 => [$label, 'String']];
+      
+      // Add entity type filter if specified
+      if ($entityType) {
+        $sql .= " AND cg.extends = %2";
+        $params[2] = [$entityType, 'String'];
+      }
+      
+      $sql .= " LIMIT 1";
+
       $dao = CRM_Core_DAO::executeQuery($sql, $params);
 
       if ($dao->fetch()) {
         $fieldName = 'custom_' . $dao->id;
-        $fieldCache[$label] = $fieldName;
+        $fieldCache[$cacheKey] = $fieldName;
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Found custom field "' . $label . '" as ' . $fieldName . ' (entity: ' . $dao->extends . ')');
         return $fieldName;
       }
     } catch (Exception $e) {
