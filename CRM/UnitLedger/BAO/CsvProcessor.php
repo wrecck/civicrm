@@ -163,6 +163,17 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       // Don't fail the whole row if field update fails
     }
 
+    // Create FCS Authorization activity
+    try {
+      $activityId = self::createAuthorizationActivity($contactId, $caseId, $rowData, $serviceType);
+      if ($activityId) {
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Row ' . $rowNum . ' - Created activity ID: ' . $activityId);
+      }
+    } catch (Exception $e) {
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Row ' . $rowNum . ' - Error creating activity: ' . $e->getMessage());
+      // Don't fail the whole row if activity creation fails
+    }
+
     $result['success'] = true;
     $result['created'] = $isNew;
     return $result;
@@ -487,6 +498,270 @@ class CRM_UnitLedger_BAO_CsvProcessor {
         self::setCaseCustomField($caseId, $customFieldName, $value);
       }
     }
+  }
+
+  /**
+   * Create FCS Authorization activity with all fields populated
+   *
+   * @param int $contactId
+   * @param int $caseId
+   * @param array $rowData CSV row data
+   * @param string $serviceType Service Type from CSV
+   * @return int|null Activity ID
+   */
+  private static function createAuthorizationActivity($contactId, $caseId, $rowData, $serviceType) {
+    // Determine activity type based on Service Type
+    $activityTypeName = 'FCS Housing Authorization (Allocation)'; // Default
+    $fieldPrefix = 'Housing';
+    if (stripos($serviceType, 'Employment') !== false) {
+      $activityTypeName = 'FCS Employment Authorization (Allocation)';
+      $fieldPrefix = 'Employment';
+    } elseif (stripos($serviceType, 'Housing') !== false || stripos($serviceType, 'Supportive') !== false) {
+      $activityTypeName = 'FCS Housing Authorization (Allocation)';
+      $fieldPrefix = 'Housing';
+    }
+
+    // Get activity type ID
+    $activityTypeId = self::getActivityTypeId($activityTypeName);
+    if (!$activityTypeId) {
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Activity type not found: ' . $activityTypeName);
+      return NULL;
+    }
+
+    // Get current user as source contact
+    $session = CRM_Core_Session::singleton();
+    $sourceContactId = $session->get('userID');
+    if (!$sourceContactId) {
+      $sourceContactId = 1; // Fallback to admin
+    }
+
+    // Prepare activity creation parameters
+    $authStartDate = self::parseDate($rowData['Auth Start Date'] ?? '');
+    $authEndDate = self::parseDate($rowData['Auth End Date'] ?? '');
+    
+    $createParams = [
+      'activity_type_id' => $activityTypeId,
+      'source_contact_id' => $sourceContactId,
+      'target_contact_id' => $contactId,
+      'subject' => $fieldPrefix . ' Authorization - ' . ($rowData['Assessment ID'] ?? ''),
+      'status_id' => 'Completed',
+      'activity_date_time' => $authStartDate ?: date('Y-m-d H:i:s'),
+      'case_id' => $caseId,
+    ];
+
+    // Map CSV columns to activity custom fields
+    // Note: Field labels may vary - try multiple variations
+    $fieldMappings = [
+      'Assessment ID' => [
+        $fieldPrefix . ' Assessment ID',
+        'Assessment ID',
+      ],
+      'ProviderOne Number' => [
+        $fieldPrefix . ' ProviderOne Number',
+        'ProviderOne Number',
+      ],
+      'Reauth (R1, R2)' => [
+        $fieldPrefix . ' Reauth',
+        $fieldPrefix . ' Reauth?',
+        'Reauth',
+        'Reauth?',
+      ],
+      'Service Type' => [
+        $fieldPrefix . ' Service Type',
+        'Service Type',
+      ],
+      'Referring Agency Name' => [
+        $fieldPrefix . ' Referring Agency Name',
+        'Referring Agency Name',
+      ],
+      'Medicaid Eligibility Determination' => [
+        'Medicaid Eligibility Determination',
+        $fieldPrefix . ' Medicaid Eligibility Determination',
+      ],
+      'Health Needs-Based Criteria' => [
+        $fieldPrefix . ' Health Needs-Based Criteria',
+        'Health Needs-Based Criteria',
+      ],
+      'Risk Factors' => [
+        $fieldPrefix . ' Risk Factors',
+        'Risk Factors',
+      ],
+      'Assigned Provider Name' => [
+        $fieldPrefix . ' Assigned Provider Name',
+        'Assigned Provider Name',
+      ],
+      'Enrollment Status' => [
+        $fieldPrefix . ' Enrollment Status',
+        'Enrollment Status',
+      ],
+      'Notes' => [
+        $fieldPrefix . ' Notes',
+        $fieldPrefix . ' Authorization Notes',
+        'Notes',
+      ],
+      'Benefit Limitation (180 Day Period)' => [
+        $fieldPrefix . ' Benefit Limitation (180 Day Period)',
+        'Benefit Limitation (180 Day Period)',
+        'Benefit Limitation',
+      ],
+      'Auth Start Date' => [
+        $fieldPrefix . ' Auth Start Date',
+        'Auth Start Date',
+      ],
+      'Auth End Date' => [
+        $fieldPrefix . ' Auth End Date',
+        'Auth End Date',
+      ],
+    ];
+
+    // Add custom fields to activity
+    foreach ($fieldMappings as $csvColumn => $fieldLabelVariations) {
+      $value = trim($rowData[$csvColumn] ?? '');
+      if ($value !== '') {
+        $customFieldName = NULL;
+        
+        // Try each field label variation
+        if (is_array($fieldLabelVariations)) {
+          foreach ($fieldLabelVariations as $fieldLabel) {
+            $customFieldName = self::getActivityCustomFieldName($fieldLabel);
+            if ($customFieldName) {
+              break; // Found it, stop searching
+            }
+          }
+        } else {
+          $customFieldName = self::getActivityCustomFieldName($fieldLabelVariations);
+        }
+        
+        if ($customFieldName) {
+          // Handle date fields specially
+          if (stripos($csvColumn, 'Date') !== false) {
+            $value = self::parseDate($value);
+          }
+          // Handle numeric fields
+          elseif (stripos($csvColumn, 'Benefit Limitation') !== false) {
+            $value = (int) $value;
+          }
+          // Handle Reauth field - convert "No" to empty or appropriate value
+          elseif (stripos($csvColumn, 'Reauth') !== false) {
+            if (stripos($value, 'No') !== false || empty($value)) {
+              // Leave empty or set to appropriate option value
+              // The dropdown will handle the mapping
+            }
+          }
+          
+          $createParams[$customFieldName] = $value;
+        } else {
+          // Log when field is not found (for debugging)
+          $labelToTry = is_array($fieldLabelVariations) ? $fieldLabelVariations[0] : $fieldLabelVariations;
+          CRM_Core_Error::debug_log_message('UnitLedger CSV: Activity custom field not found for: ' . $labelToTry . ' (CSV column: ' . $csvColumn . ')');
+        }
+      }
+    }
+
+    // Create the activity
+    try {
+      $result = civicrm_api3('Activity', 'create', $createParams);
+      $activityId = isset($result['id']) ? $result['id'] : NULL;
+      
+      if (!$activityId && isset($result['values']) && is_array($result['values'])) {
+        $activityId = reset($result['values'])['id'] ?? NULL;
+      }
+      
+      return $activityId;
+    } catch (Exception $e) {
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Error creating activity: ' . $e->getMessage());
+      return NULL;
+    }
+  }
+
+  /**
+   * Get activity type ID by name
+   *
+   * @param string $activityTypeName
+   * @return int|null
+   */
+  private static function getActivityTypeId($activityTypeName) {
+    static $cache = [];
+
+    if (isset($cache[$activityTypeName])) {
+      return $cache[$activityTypeName];
+    }
+
+    try {
+      $result = civicrm_api3('OptionValue', 'get', [
+        'option_group_id' => 'activity_type',
+        'name' => $activityTypeName,
+        'return' => ['value'],
+      ]);
+
+      if ($result['count'] > 0) {
+        $id = isset($result['id']) ? $result['values'][$result['id']]['value'] : NULL;
+        if ($id) {
+          $cache[$activityTypeName] = $id;
+          return $id;
+        }
+      }
+      
+      // Try by label as fallback
+      $result = civicrm_api3('OptionValue', 'get', [
+        'option_group_id' => 'activity_type',
+        'label' => $activityTypeName,
+        'return' => ['value'],
+      ]);
+
+      if ($result['count'] > 0) {
+        $id = isset($result['id']) ? $result['values'][$result['id']]['value'] : NULL;
+        if ($id) {
+          $cache[$activityTypeName] = $id;
+          return $id;
+        }
+      }
+      
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Activity type not found: ' . $activityTypeName);
+    } catch (Exception $e) {
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Error finding activity type: ' . $e->getMessage());
+    }
+
+    return NULL;
+  }
+
+  /**
+   * Get activity custom field name by label
+   *
+   * @param string $label
+   * @return string|null
+   */
+  private static function getActivityCustomFieldName($label) {
+    static $fieldCache = [];
+
+    if (isset($fieldCache[$label])) {
+      return $fieldCache[$label];
+    }
+
+    try {
+      $sql = "
+        SELECT cf.id, cf.column_name 
+        FROM civicrm_custom_field cf
+        JOIN civicrm_custom_group cg ON cf.custom_group_id = cg.id
+        WHERE cf.label = %1 
+          AND cg.is_active = 1
+          AND cg.extends = 'Activity'
+        LIMIT 1
+      ";
+
+      $params = [1 => [$label, 'String']];
+      $dao = CRM_Core_DAO::executeQuery($sql, $params);
+
+      if ($dao->fetch()) {
+        $fieldName = 'custom_' . $dao->id;
+        $fieldCache[$label] = $fieldName;
+        return $fieldName;
+      }
+    } catch (Exception $e) {
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Error finding activity custom field: ' . $e->getMessage());
+    }
+
+    return NULL;
   }
 
   /**
