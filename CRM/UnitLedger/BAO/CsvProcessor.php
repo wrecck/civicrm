@@ -517,6 +517,8 @@ class CRM_UnitLedger_BAO_CsvProcessor {
    * @return int|null Activity ID
    */
   private static function createAuthorizationActivity($contactId, $caseId, $rowData, $serviceType) {
+    CRM_Core_Error::debug_log_message('UnitLedger CSV: Starting activity creation for Service Type: ' . $serviceType);
+    
     // Determine activity type based on Service Type
     $activityTypeName = 'FCS Housing Authorization (Allocation)'; // Default
     $fieldPrefix = 'Housing';
@@ -528,12 +530,34 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       $fieldPrefix = 'Housing';
     }
 
+    CRM_Core_Error::debug_log_message('UnitLedger CSV: Determined activity type: ' . $activityTypeName . ', prefix: ' . $fieldPrefix);
+
     // Get activity type ID
     $activityTypeId = self::getActivityTypeId($activityTypeName);
     if (!$activityTypeId) {
-      CRM_Core_Error::debug_log_message('UnitLedger CSV: Activity type not found: ' . $activityTypeName);
-      return NULL;
+      // Try alternative names
+      $alternatives = [
+        'FCS Employment Authorization (Allocation)' => ['FCS Employment Authorization', 'Employment Authorization'],
+        'FCS Housing Authorization (Allocation)' => ['FCS Housing Authorization', 'Housing Authorization'],
+      ];
+      
+      if (isset($alternatives[$activityTypeName])) {
+        foreach ($alternatives[$activityTypeName] as $altName) {
+          $activityTypeId = self::getActivityTypeId($altName);
+          if ($activityTypeId) {
+            CRM_Core_Error::debug_log_message('UnitLedger CSV: Found activity type using alternative name: ' . $altName);
+            break;
+          }
+        }
+      }
+      
+      if (!$activityTypeId) {
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Activity type not found: ' . $activityTypeName);
+        return NULL;
+      }
     }
+    
+    CRM_Core_Error::debug_log_message('UnitLedger CSV: Activity type ID: ' . $activityTypeId);
 
     // Get current user as source contact
     $session = CRM_Core_Session::singleton();
@@ -674,16 +698,37 @@ class CRM_UnitLedger_BAO_CsvProcessor {
 
     // Create the activity
     try {
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Creating activity with params: ' . json_encode($createParams));
       $result = civicrm_api3('Activity', 'create', $createParams);
+      
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Activity API result: ' . json_encode($result));
+      
       $activityId = isset($result['id']) ? $result['id'] : NULL;
       
       if (!$activityId && isset($result['values']) && is_array($result['values'])) {
-        $activityId = reset($result['values'])['id'] ?? NULL;
+        // Try to get ID from values array
+        foreach ($result['values'] as $key => $value) {
+          if (isset($value['id'])) {
+            $activityId = $value['id'];
+            break;
+          }
+          // Sometimes the key itself is the ID
+          if (is_numeric($key)) {
+            $activityId = $key;
+            break;
+          }
+        }
+      }
+      
+      if ($activityId) {
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Successfully created activity ID: ' . $activityId);
+      } else {
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Activity created but ID not found in result');
       }
       
       return $activityId;
     } catch (Exception $e) {
-      CRM_Core_Error::debug_log_message('UnitLedger CSV: Error creating activity: ' . $e->getMessage());
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Error creating activity: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
       return NULL;
     }
   }
@@ -702,6 +747,7 @@ class CRM_UnitLedger_BAO_CsvProcessor {
     }
 
     try {
+      // Try by name first
       $result = civicrm_api3('OptionValue', 'get', [
         'option_group_id' => 'activity_type',
         'name' => $activityTypeName,
@@ -709,9 +755,19 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       ]);
 
       if ($result['count'] > 0) {
-        $id = isset($result['id']) ? $result['values'][$result['id']]['value'] : NULL;
+        // API3 returns values in different formats
+        $id = NULL;
+        if (isset($result['id']) && isset($result['values'][$result['id']]['value'])) {
+          $id = $result['values'][$result['id']]['value'];
+        } elseif (isset($result['values']) && is_array($result['values'])) {
+          // Get first value
+          $firstValue = reset($result['values']);
+          $id = isset($firstValue['value']) ? $firstValue['value'] : NULL;
+        }
+        
         if ($id) {
           $cache[$activityTypeName] = $id;
+          CRM_Core_Error::debug_log_message('UnitLedger CSV: Found activity type "' . $activityTypeName . '" with ID: ' . $id);
           return $id;
         }
       }
@@ -724,11 +780,34 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       ]);
 
       if ($result['count'] > 0) {
-        $id = isset($result['id']) ? $result['values'][$result['id']]['value'] : NULL;
+        $id = NULL;
+        if (isset($result['id']) && isset($result['values'][$result['id']]['value'])) {
+          $id = $result['values'][$result['id']]['value'];
+        } elseif (isset($result['values']) && is_array($result['values'])) {
+          $firstValue = reset($result['values']);
+          $id = isset($firstValue['value']) ? $firstValue['value'] : NULL;
+        }
+        
         if ($id) {
           $cache[$activityTypeName] = $id;
+          CRM_Core_Error::debug_log_message('UnitLedger CSV: Found activity type "' . $activityTypeName . '" by label with ID: ' . $id);
           return $id;
         }
+      }
+      
+      // Try direct SQL as last resort
+      $id = CRM_Core_DAO::singleValueQuery("
+        SELECT value FROM civicrm_option_value 
+        WHERE option_group_id = (SELECT id FROM civicrm_option_group WHERE name = 'activity_type')
+        AND (name = %1 OR label = %1)
+        AND is_active = 1
+        LIMIT 1
+      ", [1 => [$activityTypeName, 'String']]);
+      
+      if ($id) {
+        $cache[$activityTypeName] = $id;
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Found activity type "' . $activityTypeName . '" via SQL with ID: ' . $id);
+        return $id;
       }
       
       CRM_Core_Error::debug_log_message('UnitLedger CSV: Activity type not found: ' . $activityTypeName);
