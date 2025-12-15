@@ -574,6 +574,18 @@ class CRM_UnitLedger_BAO_CsvProcessor {
     
     CRM_Core_Error::debug_log_message('UnitLedger CSV: Using current date/time for activity: ' . $currentDateTime);
     
+    // Get assignee contact ID from Assigned Provider Name
+    $assigneeContactId = NULL;
+    $assignedProviderName = trim($rowData['Assigned Provider Name'] ?? '');
+    if (!empty($assignedProviderName)) {
+      $assigneeContactId = self::findContactByName($assignedProviderName);
+      if ($assigneeContactId) {
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Found assignee contact ID: ' . $assigneeContactId . ' for provider: ' . $assignedProviderName);
+      } else {
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Could not find assignee contact for provider: ' . $assignedProviderName);
+      }
+    }
+    
     $createParams = [
       'activity_type_id' => $activityTypeId,
       'source_contact_id' => $sourceContactId,
@@ -583,6 +595,12 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       'activity_date_time' => $currentDateTime, // Use current date/time
       'case_id' => $caseId,
     ];
+    
+    // Add assignee if found (for both Housing and Employment Authorization)
+    if ($assigneeContactId) {
+      $createParams['assignee_contact_id'] = $assigneeContactId;
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Setting assignee_contact_id to: ' . $assigneeContactId . ' for ' . $fieldPrefix . ' Authorization');
+    }
 
     // Map CSV columns to activity custom fields using direct field IDs
     // FCS Housing Authorization (Allocation) custom fields
@@ -623,6 +641,16 @@ class CRM_UnitLedger_BAO_CsvProcessor {
     
     // Use appropriate field map based on prefix
     $fieldMappings = ($fieldPrefix === 'Housing') ? $housingFieldMap : $employmentFieldMap;
+    
+    // For Employment Authorization, also add Employment Units Allocated from Benefit Limitation
+    if ($fieldPrefix === 'Employment') {
+      $benefitLimitation = trim($rowData['Benefit Limitation (180 Day Period)'] ?? '');
+      if (!empty($benefitLimitation)) {
+        $fieldMappings['Employment Units Allocated'] = 'custom_310';
+        // Store the value for this field separately since it uses the same CSV column
+        $rowData['Employment Units Allocated'] = $benefitLimitation;
+      }
+    }
 
     // Add custom fields to activity using direct field IDs
     CRM_Core_Error::debug_log_message('UnitLedger CSV: Processing ' . count($fieldMappings) . ' custom fields for activity (using direct field IDs)');
@@ -640,7 +668,7 @@ class CRM_UnitLedger_BAO_CsvProcessor {
           $value = self::parseDate($value);
         }
         // Handle numeric fields
-        elseif (stripos($csvColumn, 'Benefit Limitation') !== false) {
+        elseif (stripos($csvColumn, 'Benefit Limitation') !== false || stripos($csvColumn, 'Units Allocated') !== false) {
           $value = (int) $value;
         }
         // Handle Reauth field - convert "No" to empty or appropriate value
