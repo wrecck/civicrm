@@ -466,19 +466,23 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       $prefix = 'Employment';
     }
     
-    // Map CSV columns to case custom fields (with appropriate prefix)
+    // Map CSV columns to case custom fields using direct field IDs (same as Housing)
+    // Note: Using same field IDs as Housing since they're in the same custom group
     $fieldMappings = [
-      'Assessment ID' => $prefix . ' Assessment ID',
-      'Reauth (R1, R2)' => $prefix . ' Reauth',
-      'Medicaid Eligibility Determination' => 'Medicaid Eligibility Determination',
-      'Health Needs-Based Criteria' => $prefix . ' Health Needs-Based Criteria',
-      'Risk Factors' => $prefix . ' Risk Factors',
-      'Enrollment Status' => $prefix . ' Enrollment Status',
-      'Assigned Provider Name' => $prefix . ' Assigned Provider (PHI)',
-      'Notes' => $prefix . ' Authorization Notes',
-      'Auth Start Date' => $prefix . ' Auth Start Date',
-      'Auth End Date' => $prefix . ' Auth End Date',
+      'Assessment ID' => $prefix . ' Assessment ID', // Will be looked up by label
+      'Reauth (R1, R2)' => $prefix . ' Reauth', // Will be looked up by label
+      'Medicaid Eligibility Determination' => 'Medicaid Eligibility Determination', // Will be looked up by label
+      'Health Needs-Based Criteria' => $prefix . ' Health Needs-Based Criteria', // Will be looked up by label
+      'Risk Factors' => $prefix . ' Risk Factors', // Will be looked up by label
+      'Enrollment Status' => $prefix . ' Enrollment Status', // Will be looked up by label
+      'Notes' => $prefix . ' Authorization Notes', // Will be looked up by label
+      'Auth Start Date' => $prefix . ' Auth Start Date', // Will be looked up by label
+      'Auth End Date' => $prefix . ' Auth End Date', // Will be looked up by label
     ];
+    
+    // Map Assigned Provider Name using direct field ID (same for both Housing and Employment)
+    // Both use custom_25 based on the FCS Case Profile custom group
+    $fieldMappings['Assigned Provider Name'] = 'custom_25';
     
     // For Employment cases, add Employment Units fields
     if ($prefix === 'Employment') {
