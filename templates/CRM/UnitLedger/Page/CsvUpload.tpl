@@ -12,9 +12,34 @@
       </div>
     {else}
       {if $formData.submitted|default:false}
-        <div class="messages status">
-          <p>{$formData.message|default:'Form submitted successfully!'}</p>
-        </div>
+        {if $formData.success|default:false}
+          <div class="messages status">
+            <p>{$formData.message|default:'CSV uploaded successfully!'}</p>
+            {if $formData.results|default:false}
+              <ul>
+                <li>{ts}Successfully processed:{/ts} {$formData.results.success}</li>
+                <li>{ts}Cases created:{/ts} {$formData.results.created}</li>
+                <li>{ts}Cases updated:{/ts} {$formData.results.updated}</li>
+                <li>{ts}Skipped:{/ts} {$formData.results.skipped}</li>
+              </ul>
+            {/if}
+          </div>
+        {else}
+          <div class="messages error">
+            <p>{$formData.error|default:'An error occurred during upload.'}</p>
+          </div>
+        {/if}
+        
+        {if $formData.errors|default:false && count($formData.errors) > 0}
+          <div class="messages warning">
+            <h4>{ts}Row Errors:{/ts}</h4>
+            <ul>
+              {foreach from=$formData.errors item=error}
+                <li>{$error}</li>
+              {/foreach}
+            </ul>
+          </div>
+        {/if}
       {/if}
       
       <div class="crm-form-block">
@@ -74,7 +99,7 @@
             <li>{ts}Auth Start Date{/ts}</li>
             <li>{ts}Auth End Date{/ts}</li>
           </ul>
-          <p><strong>{ts}Note:{/ts}</strong> {ts}Upload functionality is not yet implemented. This is a form preview only.{/ts}</p>
+          <p><strong>{ts}Note:{/ts}</strong> {ts}The CSV file will create or update cases with the FCS Housing Case Profile data.{/ts}</p>
         </div>
       </div>
     {/if}

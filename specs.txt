@@ -1,0 +1,41 @@
+Custom CiviCRM extension (org.onlygod.unitledger)
+
+Append-only Unit Ledger (table + APIv4) with rows linked to activity_id (and case/contact where present).
+
+Recompute tool to rebuild balances from activities (by case / date range).
+
+Config (unit multipliers, activity-type → program mapping).
+
+Automation wired up
+
+CiviRules rules for the four activity types with Create / Update / Delete triggers.
+
+An Action Provider action (e.g., UnitLedger.postDelta) that is delta-aware:
+
+Create → post units; Update → post difference; Delete → post reverse.
+
+Uses hidden last_posted_units on the activity for idempotency.
+
+CSV Importer (in the same extension)
+
+Upload state CSV → creates FCS Authorization activities with mapped machine-name fields.
+
+Dry-run, duplicate handling (hash), result report (success/errors).
+
+Import triggers deposits automatically via the same posting logic.
+
+UI
+
+Case “Units Ledger” tab showing entries, running balance, and links to source activities.
+
+A couple SearchKit reports (by case/program/date range).
+
+Operational bits
+
+Permissions, cache clears, and deployment notes.
+
+Short README with setup, mappings, and rollback steps.
+
+Quick demo walkthrough on Dev.
+
+Outcome: case activities (Auth/Delivered/Adjustments) keep the ledger always up-to-date, edits/deletes stay consistent, and staff get a clear balance + exportable reports.
