@@ -471,13 +471,20 @@ class CRM_UnitLedger_BAO_CsvProcessor {
     $directFields = [];
 
     foreach ($fieldMappings as $csvColumn => $fieldLabel) {
-      $value = $rowData[$csvColumn] ?? '';
+      $value = trim($rowData[$csvColumn] ?? '');
       if ($value !== '') {
         $customFieldName = self::getCustomFieldName($fieldLabel);
         if ($customFieldName) {
           // Handle date fields specially
           if (strpos($fieldLabel, 'Date') !== false) {
             $value = self::parseDate($value);
+          } else {
+            // Convert value based on field type (contact reference, option value, etc.)
+            $value = self::convertFieldValue($customFieldName, $value, 'Case');
+            if ($value === NULL) {
+              // Conversion failed, skip this field
+              continue;
+            }
           }
           
           // Try API format first
@@ -646,6 +653,13 @@ class CRM_UnitLedger_BAO_CsvProcessor {
             if (stripos($value, 'No') !== false || empty($value)) {
               // Leave empty or set to appropriate option value
               // The dropdown will handle the mapping
+            }
+          } else {
+            // Convert value based on field type (contact reference, option value, etc.)
+            $value = self::convertFieldValue($customFieldName, $value, 'Activity');
+            if ($value === NULL) {
+              // Conversion failed, skip this field
+              continue;
             }
           }
           
@@ -956,6 +970,172 @@ class CRM_UnitLedger_BAO_CsvProcessor {
   }
 
   /**
+   * Get custom field data type and info
+   *
+   * @param string $customFieldName e.g., 'custom_123'
+   * @param string $entityType 'Case' or 'Activity'
+   * @return array|null Field info with data_type, html_type, etc.
+   */
+  private static function getCustomFieldInfo($customFieldName, $entityType = 'Case') {
+    static $fieldInfoCache = [];
+    $cacheKey = $customFieldName . '_' . $entityType;
+    
+    if (isset($fieldInfoCache[$cacheKey])) {
+      return $fieldInfoCache[$cacheKey];
+    }
+    
+    try {
+      $fieldId = str_replace('custom_', '', $customFieldName);
+      
+      $sql = "
+        SELECT cf.data_type, cf.html_type, cf.column_name, cg.table_name, 
+               cf.option_group_id, cf.filter
+        FROM civicrm_custom_field cf
+        JOIN civicrm_custom_group cg ON cf.custom_group_id = cg.id
+        WHERE cf.id = %1 AND cg.extends = %2
+      ";
+      
+      $dao = CRM_Core_DAO::executeQuery($sql, [
+        1 => [$fieldId, 'Integer'],
+        2 => [$entityType, 'String'],
+      ]);
+      
+      if ($dao->fetch()) {
+        $info = [
+          'data_type' => $dao->data_type,
+          'html_type' => $dao->html_type,
+          'column_name' => $dao->column_name,
+          'table_name' => $dao->table_name,
+          'option_group_id' => $dao->option_group_id,
+          'filter' => $dao->filter,
+        ];
+        $fieldInfoCache[$cacheKey] = $info;
+        return $info;
+      }
+    } catch (Exception $e) {
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Error getting custom field info: ' . $e->getMessage());
+    }
+    
+    return NULL;
+  }
+
+  /**
+   * Convert field value based on field type (contact reference, option value, etc.)
+   *
+   * @param string $customFieldName
+   * @param mixed $value
+   * @param string $entityType 'Case' or 'Activity'
+   * @return mixed Converted value
+   */
+  private static function convertFieldValue($customFieldName, $value, $entityType = 'Case') {
+    if (empty($value)) {
+      return $value;
+    }
+    
+    $fieldInfo = self::getCustomFieldInfo($customFieldName, $entityType);
+    if (!$fieldInfo) {
+      return $value;
+    }
+    
+    // Handle contact reference fields
+    if ($fieldInfo['data_type'] === 'ContactReference' || 
+        ($fieldInfo['html_type'] === 'Select' && !empty($fieldInfo['filter']) && strpos($fieldInfo['filter'], 'contact_type') !== false)) {
+      // Look up contact by name
+      $contactId = self::findContactByName($value);
+      if ($contactId) {
+        return $contactId;
+      }
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Contact not found for: ' . $value);
+      return NULL;
+    }
+    
+    // Handle option value fields (Select, Radio, CheckBox, etc.)
+    if (in_array($fieldInfo['html_type'], ['Select', 'Radio', 'CheckBox', 'Multi-Select']) && !empty($fieldInfo['option_group_id'])) {
+      $optionValue = self::getOptionValueId($fieldInfo['option_group_id'], $value);
+      if ($optionValue !== NULL) {
+        return $optionValue;
+      }
+      // If not found, try to use the value as-is (might already be an ID)
+      if (is_numeric($value)) {
+        return (int) $value;
+      }
+    }
+    
+    return $value;
+  }
+
+  /**
+   * Find contact by name (organization or individual)
+   *
+   * @param string $name
+   * @return int|null Contact ID
+   */
+  private static function findContactByName($name) {
+    if (empty($name)) {
+      return NULL;
+    }
+    
+    try {
+      // Try organization first (for providers/agencies)
+      $result = civicrm_api3('Contact', 'get', [
+        'contact_type' => 'Organization',
+        'organization_name' => $name,
+        'return' => ['id'],
+        'options' => ['limit' => 1],
+      ]);
+      
+      if ($result['count'] > 0) {
+        return $result['id'];
+      }
+      
+      // Try individual by display name
+      $result = civicrm_api3('Contact', 'get', [
+        'display_name' => $name,
+        'return' => ['id'],
+        'options' => ['limit' => 1],
+      ]);
+      
+      if ($result['count'] > 0) {
+        return $result['id'];
+      }
+    } catch (Exception $e) {
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Error finding contact: ' . $e->getMessage());
+    }
+    
+    return NULL;
+  }
+
+  /**
+   * Get option value ID by label
+   *
+   * @param int $optionGroupId
+   * @param string $label
+   * @return int|null
+   */
+  private static function getOptionValueId($optionGroupId, $label) {
+    if (empty($label)) {
+      return NULL;
+    }
+    
+    try {
+      $result = civicrm_api3('OptionValue', 'get', [
+        'option_group_id' => $optionGroupId,
+        'label' => $label,
+        'return' => ['value'],
+      ]);
+      
+      if ($result['count'] > 0) {
+        $id = isset($result['id']) ? $result['values'][$result['id']]['value'] : NULL;
+        return $id;
+      }
+    } catch (Exception $e) {
+      // Ignore errors
+    }
+    
+    return NULL;
+  }
+
+  /**
    * Set a custom field value directly on a case
    *
    * @param int $caseId
@@ -967,43 +1147,55 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       $fieldId = str_replace('custom_', '', $customFieldName);
       
       // Get custom group and field info
-      $sql = "
-        SELECT cg.table_name, cf.column_name
-        FROM civicrm_custom_field cf
-        JOIN civicrm_custom_group cg ON cf.custom_group_id = cg.id
-        WHERE cf.id = %1 AND cg.extends = 'Case'
-      ";
+      $fieldInfo = self::getCustomFieldInfo($customFieldName, 'Case');
+      if (!$fieldInfo) {
+        return;
+      }
       
-      $dao = CRM_Core_DAO::executeQuery($sql, [1 => [$fieldId, 'Integer']]);
-      if ($dao->fetch()) {
-        $tableName = $dao->table_name;
-        $columnName = $dao->column_name;
-        
-        // Check if record exists
-        $exists = CRM_Core_DAO::singleValueQuery("
-          SELECT entity_id FROM {$tableName} WHERE entity_id = %1
-        ", [1 => [$caseId, 'Integer']]);
-        
-        if ($exists) {
-          // Update
-          CRM_Core_DAO::executeQuery("
-            UPDATE {$tableName} 
-            SET {$columnName} = %1 
-            WHERE entity_id = %2
-          ", [
-            1 => [$value, 'String'],
-            2 => [$caseId, 'Integer'],
-          ]);
-        } else {
-          // Insert
-          CRM_Core_DAO::executeQuery("
-            INSERT INTO {$tableName} (entity_id, {$columnName}) 
-            VALUES (%1, %2)
-          ", [
-            1 => [$caseId, 'Integer'],
-            2 => [$value, 'String'],
-          ]);
-        }
+      // Convert value based on field type
+      $convertedValue = self::convertFieldValue($customFieldName, $value, 'Case');
+      if ($convertedValue === NULL && $value !== '') {
+        // Conversion failed, skip this field
+        return;
+      }
+      
+      $tableName = $fieldInfo['table_name'];
+      $columnName = $fieldInfo['column_name'];
+      
+      // Determine data type for SQL parameter
+      $dataType = 'String';
+      if ($fieldInfo['data_type'] === 'Int' || $fieldInfo['data_type'] === 'Integer') {
+        $dataType = 'Integer';
+        $convertedValue = (int) $convertedValue;
+      } elseif ($fieldInfo['data_type'] === 'Float' || $fieldInfo['data_type'] === 'Money') {
+        $dataType = 'Float';
+        $convertedValue = (float) $convertedValue;
+      }
+      
+      // Check if record exists
+      $exists = CRM_Core_DAO::singleValueQuery("
+        SELECT entity_id FROM {$tableName} WHERE entity_id = %1
+      ", [1 => [$caseId, 'Integer']]);
+      
+      if ($exists) {
+        // Update
+        CRM_Core_DAO::executeQuery("
+          UPDATE {$tableName} 
+          SET {$columnName} = %1 
+          WHERE entity_id = %2
+        ", [
+          1 => [$convertedValue, $dataType],
+          2 => [$caseId, 'Integer'],
+        ]);
+      } else {
+        // Insert
+        CRM_Core_DAO::executeQuery("
+          INSERT INTO {$tableName} (entity_id, {$columnName}) 
+          VALUES (%1, %2)
+        ", [
+          1 => [$caseId, 'Integer'],
+          2 => [$convertedValue, $dataType],
+        ]);
       }
     } catch (Exception $e) {
       CRM_Core_Error::debug_log_message('UnitLedger CSV: Error setting custom field: ' . $e->getMessage());
