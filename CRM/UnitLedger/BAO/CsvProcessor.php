@@ -135,21 +135,33 @@ class CRM_UnitLedger_BAO_CsvProcessor {
     $contactId = self::findOrCreateContact($firstName, $lastName, $dob, $rowData);
     if (!$contactId) {
       $result['error'] = 'Could not find or create contact';
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Row ' . $rowNum . ' - Failed to find/create contact for: ' . $firstName . ' ' . $lastName);
       return $result;
     }
+
+    CRM_Core_Error::debug_log_message('UnitLedger CSV: Row ' . $rowNum . ' - Contact ID: ' . $contactId . ', Assessment ID: ' . $assessmentId . ', Service Type: ' . $serviceType);
 
     // Find or create case (determine case type from Service Type)
     $caseResult = self::findOrCreateCase($contactId, $assessmentId, $rowData, $serviceType);
     if (!$caseResult['success']) {
       $result['error'] = $caseResult['error'];
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Row ' . $rowNum . ' - Failed to find/create case: ' . $caseResult['error']);
       return $result;
     }
 
     $caseId = $caseResult['case_id'];
     $isNew = $caseResult['created'];
 
+    CRM_Core_Error::debug_log_message('UnitLedger CSV: Row ' . $rowNum . ' - Case ID: ' . $caseId . ' (' . ($isNew ? 'created' : 'updated') . ')');
+
     // Update case with CSV data
-    self::updateCaseFields($caseId, $rowData);
+    try {
+      self::updateCaseFields($caseId, $rowData);
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Row ' . $rowNum . ' - Successfully updated case fields');
+    } catch (Exception $e) {
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Row ' . $rowNum . ' - Error updating case fields: ' . $e->getMessage());
+      // Don't fail the whole row if field update fails
+    }
 
     $result['success'] = true;
     $result['created'] = $isNew;
@@ -250,83 +262,130 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       $fieldPrefix = 'Housing';
     }
     
+    // Get case type ID first - required for both lookup and creation
+    $caseTypeId = self::getCaseTypeId($caseTypeName);
+    if (!$caseTypeId) {
+      return ['success' => false, 'error' => $caseTypeName . ' case type not found'];
+    }
+    
     // Try to find existing case by Assessment ID using direct SQL query
     $customFieldName = self::getCustomFieldName($fieldPrefix . ' Assessment ID');
     if ($customFieldName) {
       try {
         $fieldId = str_replace('custom_', '', $customFieldName);
-        $caseTypeId = self::getCaseTypeId($caseTypeName);
         
-        // Query using custom field table
-        $sql = "
-          SELECT c.id 
-          FROM civicrm_case c
-          INNER JOIN civicrm_case_contact cc ON c.id = cc.case_id
-          WHERE cc.contact_id = %1
-            AND c.case_type_id = %2
-            AND c.is_deleted = 0
-        ";
-        
-        $params = [
-          1 => [$contactId, 'Integer'],
-          2 => [$caseTypeId, 'Integer'],
-        ];
-        
-        // Try to find custom field table name
-        $customGroupId = CRM_Core_DAO::singleValueQuery("
-          SELECT custom_group_id 
-          FROM civicrm_custom_field 
-          WHERE id = %1
-        ", [1 => [$fieldId, 'Integer']]);
-        
-        if ($customGroupId) {
-          $customGroupTable = CRM_Core_DAO::singleValueQuery("
-            SELECT table_name 
-            FROM civicrm_custom_group 
-            WHERE id = %1
-          ", [1 => [$customGroupId, 'Integer']]);
+        // Validate fieldId is numeric
+        if (!is_numeric($fieldId)) {
+          CRM_Core_Error::debug_log_message('UnitLedger CSV: Invalid custom field ID: ' . $fieldId);
+        } else {
+          // Query using custom field table
+          $sql = "
+            SELECT c.id 
+            FROM civicrm_case c
+            INNER JOIN civicrm_case_contact cc ON c.id = cc.case_id
+            WHERE cc.contact_id = %1
+              AND c.case_type_id = %2
+              AND c.is_deleted = 0
+          ";
           
-          if ($customGroupTable) {
-            $columnName = CRM_Core_DAO::singleValueQuery("
-              SELECT column_name 
-              FROM civicrm_custom_field 
+          $params = [
+            1 => [$contactId, 'Integer'],
+            2 => [$caseTypeId, 'Integer'],
+          ];
+        
+          // Try to find custom field table name
+          $customGroupId = CRM_Core_DAO::singleValueQuery("
+            SELECT custom_group_id 
+            FROM civicrm_custom_field 
+            WHERE id = %1
+          ", [1 => [$fieldId, 'Integer']]);
+          
+          if ($customGroupId) {
+            $customGroupTable = CRM_Core_DAO::singleValueQuery("
+              SELECT table_name 
+              FROM civicrm_custom_group 
               WHERE id = %1
-            ", [1 => [$fieldId, 'Integer']]);
+            ", [1 => [$customGroupId, 'Integer']]);
             
-            if ($columnName) {
-              $sql .= " AND EXISTS (
-                SELECT 1 FROM {$customGroupTable} 
-                WHERE entity_id = c.id 
-                AND {$columnName} = %3
-              )";
-              $params[3] = [$assessmentId, 'String'];
+            if ($customGroupTable) {
+              $columnName = CRM_Core_DAO::singleValueQuery("
+                SELECT column_name 
+                FROM civicrm_custom_field 
+                WHERE id = %1
+              ", [1 => [$fieldId, 'Integer']]);
+              
+              if ($columnName) {
+                $sql .= " AND EXISTS (
+                  SELECT 1 FROM {$customGroupTable} 
+                  WHERE entity_id = c.id 
+                  AND {$columnName} = %3
+                )";
+                $params[3] = [$assessmentId, 'String'];
+              }
             }
           }
-        }
-        
-        $sql .= " LIMIT 1";
-        
-        $caseId = CRM_Core_DAO::singleValueQuery($sql, $params);
-        if ($caseId) {
-          return ['success' => true, 'case_id' => $caseId, 'created' => false];
+          
+          $sql .= " LIMIT 1";
+          
+          $caseId = CRM_Core_DAO::singleValueQuery($sql, $params);
+          if ($caseId) {
+            return ['success' => true, 'case_id' => $caseId, 'created' => false];
+          }
         }
       } catch (Exception $e) {
         CRM_Core_Error::debug_log_message('UnitLedger CSV: Error finding case: ' . $e->getMessage());
       }
     }
+    
+    // If we couldn't find by Assessment ID, try simpler lookup by contact and case type
+    try {
+      $sql = "
+        SELECT c.id 
+        FROM civicrm_case c
+        INNER JOIN civicrm_case_contact cc ON c.id = cc.case_id
+        WHERE cc.contact_id = %1
+          AND c.case_type_id = %2
+          AND c.is_deleted = 0
+        ORDER BY c.created_date DESC
+        LIMIT 1
+      ";
+      
+      $params = [
+        1 => [$contactId, 'Integer'],
+        2 => [$caseTypeId, 'Integer'],
+      ];
+      
+      $caseId = CRM_Core_DAO::singleValueQuery($sql, $params);
+      if ($caseId) {
+        // Found existing case, update it
+        return ['success' => true, 'case_id' => $caseId, 'created' => false];
+      }
+    } catch (Exception $e) {
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Error finding case by contact: ' . $e->getMessage());
+    }
 
     // Create new case
-    $caseTypeId = self::getCaseTypeId($caseTypeName);
-    if (!$caseTypeId) {
-      return ['success' => false, 'error' => $caseTypeName . ' case type not found'];
+    $statusId = self::getCaseStatusId('Open');
+    if (!$statusId) {
+      // Try to get first available status
+      $statusId = CRM_Core_DAO::singleValueQuery("
+        SELECT value FROM civicrm_option_value 
+        WHERE option_group_id = (SELECT id FROM civicrm_option_group WHERE name = 'case_status')
+        AND is_active = 1
+        ORDER BY weight ASC
+        LIMIT 1
+      ");
     }
 
     $createParams = [
       'case_type_id' => $caseTypeId,
       'contact_id' => $contactId,
       'subject' => $caseTypeName . ' Case - ' . $assessmentId,
-      'status_id' => self::getCaseStatusId('Open'),
     ];
+    
+    if ($statusId) {
+      $createParams['status_id'] = $statusId;
+    }
 
     // Set Assessment ID custom field using API format
     if ($customFieldName) {
@@ -334,17 +393,36 @@ class CRM_UnitLedger_BAO_CsvProcessor {
     }
 
     try {
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Creating case with params: ' . json_encode($createParams));
       $result = civicrm_api3('Case', 'create', $createParams);
-      $caseId = $result['id'];
+      
+      // API3 returns id directly or in values array
+      $caseId = isset($result['id']) ? $result['id'] : (isset($result['values'][$result['id']]['id']) ? $result['values'][$result['id']]['id'] : NULL);
+      
+      if (!$caseId) {
+        // Try to get from values array
+        if (isset($result['values']) && is_array($result['values'])) {
+          $caseId = reset($result['values'])['id'] ?? NULL;
+        }
+      }
+      
+      if (!$caseId) {
+        throw new Exception('Case created but ID not returned');
+      }
+      
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Case created with ID: ' . $caseId);
       
       // If custom field wasn't set via API, set it directly
-      if ($customFieldName && empty($result[$customFieldName])) {
-        self::setCaseCustomField($caseId, $customFieldName, $assessmentId);
+      if ($customFieldName) {
+        $fieldValue = isset($result[$customFieldName]) ? $result[$customFieldName] : NULL;
+        if (empty($fieldValue)) {
+          self::setCaseCustomField($caseId, $customFieldName, $assessmentId);
+        }
       }
       
       return ['success' => true, 'case_id' => $caseId, 'created' => true];
     } catch (Exception $e) {
-      CRM_Core_Error::debug_log_message('UnitLedger CSV: Error creating case: ' . $e->getMessage());
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Error creating case: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
       return ['success' => false, 'error' => 'Could not create case: ' . $e->getMessage()];
     }
   }
@@ -462,18 +540,50 @@ class CRM_UnitLedger_BAO_CsvProcessor {
     }
 
     try {
+      // Try by name first
       $result = civicrm_api3('CaseType', 'get', [
         'name' => $caseTypeName,
         'return' => ['id'],
       ]);
 
       if ($result['count'] > 0) {
-        $id = $result['id'];
+        // API3 returns id in the first value
+        $id = isset($result['id']) ? $result['id'] : (isset($result['values'][$result['id']]['id']) ? $result['values'][$result['id']]['id'] : NULL);
+        if ($id) {
+          $cache[$caseTypeName] = $id;
+          return $id;
+        }
+      }
+      
+      // Try by title as fallback
+      $result = civicrm_api3('CaseType', 'get', [
+        'title' => $caseTypeName,
+        'return' => ['id'],
+      ]);
+
+      if ($result['count'] > 0) {
+        $id = isset($result['id']) ? $result['id'] : (isset($result['values'][$result['id']]['id']) ? $result['values'][$result['id']]['id'] : NULL);
+        if ($id) {
+          $cache[$caseTypeName] = $id;
+          return $id;
+        }
+      }
+      
+      // Try direct SQL query as last resort
+      $id = CRM_Core_DAO::singleValueQuery("
+        SELECT id FROM civicrm_case_type 
+        WHERE name = %1 OR title = %1
+        LIMIT 1
+      ", [1 => [$caseTypeName, 'String']]);
+      
+      if ($id) {
         $cache[$caseTypeName] = $id;
         return $id;
       }
+      
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Case type not found: ' . $caseTypeName);
     } catch (Exception $e) {
-      CRM_Core_Error::debug_log_message('UnitLedger CSV: Error finding case type: ' . $e->getMessage());
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Error finding case type "' . $caseTypeName . '": ' . $e->getMessage());
     }
 
     return NULL;
