@@ -680,14 +680,20 @@ class CRM_UnitLedger_BAO_CsvProcessor {
             }
           } else {
             // Convert value based on field type (contact reference, option value, etc.)
+            $originalValue = $value;
             $value = self::convertFieldValue($customFieldName, $value, 'Activity');
-            if ($value === NULL) {
-              // Conversion failed, skip this field
+            if ($value === NULL && $originalValue !== '') {
+              // Conversion failed, log and skip this field
+              $labelToTry = is_array($fieldLabelVariations) ? $fieldLabelVariations[0] : $fieldLabelVariations;
+              CRM_Core_Error::debug_log_message('UnitLedger CSV: Could not convert value "' . $originalValue . '" for field "' . $labelToTry . '", skipping');
               continue;
             }
           }
           
-          $createParams[$customFieldName] = $value;
+          // Only add if value is not NULL
+          if ($value !== NULL) {
+            $createParams[$customFieldName] = $value;
+          }
         } else {
           // Log when field is not found (for debugging)
           $labelToTry = is_array($fieldLabelVariations) ? $fieldLabelVariations[0] : $fieldLabelVariations;
@@ -698,21 +704,28 @@ class CRM_UnitLedger_BAO_CsvProcessor {
 
     // Create the activity
     try {
-      CRM_Core_Error::debug_log_message('UnitLedger CSV: Creating activity with params: ' . json_encode($createParams));
-      $result = civicrm_api3('Activity', 'create', $createParams);
+      // Remove custom fields from params for initial attempt (create basic activity first)
+      $basicParams = [
+        'activity_type_id' => $createParams['activity_type_id'],
+        'source_contact_id' => $createParams['source_contact_id'],
+        'target_contact_id' => $createParams['target_contact_id'],
+        'subject' => $createParams['subject'],
+        'status_id' => $createParams['status_id'],
+        'activity_date_time' => $createParams['activity_date_time'],
+        'case_id' => $createParams['case_id'],
+      ];
       
-      CRM_Core_Error::debug_log_message('UnitLedger CSV: Activity API result: ' . json_encode($result));
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Creating activity with basic params first');
+      $result = civicrm_api3('Activity', 'create', $basicParams);
       
       $activityId = isset($result['id']) ? $result['id'] : NULL;
       
       if (!$activityId && isset($result['values']) && is_array($result['values'])) {
-        // Try to get ID from values array
         foreach ($result['values'] as $key => $value) {
           if (isset($value['id'])) {
             $activityId = $value['id'];
             break;
           }
-          // Sometimes the key itself is the ID
           if (is_numeric($key)) {
             $activityId = $key;
             break;
@@ -720,13 +733,32 @@ class CRM_UnitLedger_BAO_CsvProcessor {
         }
       }
       
-      if ($activityId) {
-        CRM_Core_Error::debug_log_message('UnitLedger CSV: Successfully created activity ID: ' . $activityId);
-      } else {
-        CRM_Core_Error::debug_log_message('UnitLedger CSV: Activity created but ID not found in result');
+      if (!$activityId) {
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Failed to create basic activity');
+        return NULL;
       }
       
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Created basic activity ID: ' . $activityId);
+      
+      // Now update with custom fields one by one to handle errors gracefully
+      $customFields = array_diff_key($createParams, $basicParams);
+      foreach ($customFields as $fieldName => $fieldValue) {
+        try {
+          $updateParams = [
+            'id' => $activityId,
+            $fieldName => $fieldValue,
+          ];
+          civicrm_api3('Activity', 'create', $updateParams);
+          CRM_Core_Error::debug_log_message('UnitLedger CSV: Successfully set field ' . $fieldName);
+        } catch (Exception $e) {
+          CRM_Core_Error::debug_log_message('UnitLedger CSV: Error setting field ' . $fieldName . ': ' . $e->getMessage() . ' - Skipping this field');
+          // Continue with other fields
+        }
+      }
+      
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Successfully created activity ID: ' . $activityId . ' with custom fields');
       return $activityId;
+      
     } catch (Exception $e) {
       CRM_Core_Error::debug_log_message('UnitLedger CSV: Error creating activity: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
       return NULL;
@@ -1185,7 +1217,7 @@ class CRM_UnitLedger_BAO_CsvProcessor {
   }
 
   /**
-   * Get option value ID by label
+   * Get option value ID by label (with fuzzy matching)
    *
    * @param int $optionGroupId
    * @param string $label
@@ -1197,6 +1229,7 @@ class CRM_UnitLedger_BAO_CsvProcessor {
     }
     
     try {
+      // First try exact match
       $result = civicrm_api3('OptionValue', 'get', [
         'option_group_id' => $optionGroupId,
         'label' => $label,
@@ -1204,11 +1237,54 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       ]);
       
       if ($result['count'] > 0) {
-        $id = isset($result['id']) ? $result['values'][$result['id']]['value'] : NULL;
+        $id = NULL;
+        if (isset($result['id']) && isset($result['values'][$result['id']]['value'])) {
+          $id = $result['values'][$result['id']]['value'];
+        } elseif (isset($result['values']) && is_array($result['values'])) {
+          $firstValue = reset($result['values']);
+          $id = isset($firstValue['value']) ? $firstValue['value'] : NULL;
+        }
+        if ($id) {
+          return $id;
+        }
+      }
+      
+      // Try partial match using SQL (for long labels)
+      $id = CRM_Core_DAO::singleValueQuery("
+        SELECT value FROM civicrm_option_value 
+        WHERE option_group_id = %1
+        AND (label = %2 OR label LIKE %3)
+        AND is_active = 1
+        ORDER BY CASE WHEN label = %2 THEN 0 ELSE 1 END
+        LIMIT 1
+      ", [
+        1 => [$optionGroupId, 'Integer'],
+        2 => [$label, 'String'],
+        3 => ['%' . $label . '%', 'String'],
+      ]);
+      
+      if ($id) {
+        return $id;
+      }
+      
+      // Try reverse partial match (label contains the search term)
+      $id = CRM_Core_DAO::singleValueQuery("
+        SELECT value FROM civicrm_option_value 
+        WHERE option_group_id = %1
+        AND %2 LIKE CONCAT('%%', label, '%%')
+        AND is_active = 1
+        ORDER BY LENGTH(label) DESC
+        LIMIT 1
+      ", [
+        1 => [$optionGroupId, 'Integer'],
+        2 => [$label, 'String'],
+      ]);
+      
+      if ($id) {
         return $id;
       }
     } catch (Exception $e) {
-      // Ignore errors
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Error finding option value: ' . $e->getMessage());
     }
     
     return NULL;
