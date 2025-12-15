@@ -584,150 +584,100 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       'case_id' => $caseId,
     ];
 
-    // Map CSV columns to activity custom fields
-    // Note: Field labels may vary - try multiple variations
-    $fieldMappings = [
-      'Assessment ID' => [
-        $fieldPrefix . ' Assessment ID',
-        'Assessment ID',
-      ],
-      'ProviderOne Number' => [
-        $fieldPrefix . ' ProviderOne Number',
-        'ProviderOne Number',
-      ],
-      'Reauth (R1, R2)' => [
-        $fieldPrefix . ' Reauth',
-        $fieldPrefix . ' Reauth?',
-        $fieldPrefix . ' Reauth (R1, R2)',
-        'Reauth',
-        'Reauth?',
-        'Reauth (R1, R2)',
-        'Housing Reauth',
-        'Employment Reauth',
-      ],
-      'Service Type' => [
-        $fieldPrefix . ' Service Type',
-        'Service Type',
-      ],
-      'Referring Agency Name' => [
-        $fieldPrefix . ' Referring Agency Name',
-        'Referring Agency Name',
-      ],
-      'Medicaid Eligibility Determination' => [
-        'Medicaid Eligibility Determination',
-        $fieldPrefix . ' Medicaid Eligibility Determination',
-      ],
-      'Health Needs-Based Criteria' => [
-        $fieldPrefix . ' Health Needs-Based Criteria',
-        'Health Needs-Based Criteria',
-      ],
-      'Risk Factors' => [
-        $fieldPrefix . ' Risk Factors',
-        'Risk Factors',
-      ],
-      'Assigned Provider Name' => [
-        $fieldPrefix . ' Assigned Provider Name',
-        'Assigned Provider Name',
-      ],
-      'Enrollment Status' => [
-        $fieldPrefix . ' Enrollment Status',
-        'Enrollment Status',
-      ],
-      'Notes' => [
-        $fieldPrefix . ' Notes',
-        $fieldPrefix . ' Authorization Notes',
-        'Notes',
-      ],
-      'Benefit Limitation (180 Day Period)' => [
-        $fieldPrefix . ' Benefit Limitation (180 Day Period)',
-        'Benefit Limitation (180 Day Period)',
-        'Benefit Limitation',
-      ],
-      'Auth Start Date' => [
-        $fieldPrefix . ' Auth Start Date',
-        'Auth Start Date',
-      ],
-      'Auth End Date' => [
-        $fieldPrefix . ' Auth End Date',
-        'Auth End Date',
-      ],
+    // Map CSV columns to activity custom fields using direct field IDs
+    // FCS Housing Authorization (Allocation) custom fields
+    $housingFieldMap = [
+      'Assessment ID' => 'custom_348',
+      'ProviderOne Number' => 'custom_349',
+      'Reauth (R1, R2)' => 'custom_350',
+      'Service Type' => 'custom_351',
+      'Referring Agency Name' => 'custom_352',
+      'Medicaid Eligibility Determination' => 'custom_353',
+      'Health Needs-Based Criteria' => 'custom_354',
+      'Risk Factors' => 'custom_355',
+      'Assigned Provider Name' => 'custom_356',
+      'Enrollment Status' => 'custom_357',
+      'Notes' => 'custom_358',
+      'Benefit Limitation (180 Day Period)' => 'custom_359',
+      'Auth Start Date' => 'custom_360',
+      'Auth End Date' => 'custom_361',
     ];
-
-    // Add custom fields to activity
-    CRM_Core_Error::debug_log_message('UnitLedger CSV: Processing ' . count($fieldMappings) . ' custom fields for activity');
-    $fieldsFound = 0;
-    $fieldsNotFound = 0;
     
-    foreach ($fieldMappings as $csvColumn => $fieldLabelVariations) {
+    // FCS Employment Authorization (Allocation) custom fields
+    // Note: These might be different - using same IDs for now, adjust if needed
+    $employmentFieldMap = [
+      'Assessment ID' => 'custom_348', // Adjust if different
+      'ProviderOne Number' => 'custom_349', // Adjust if different
+      'Reauth (R1, R2)' => 'custom_350', // Adjust if different
+      'Service Type' => 'custom_351', // Adjust if different
+      'Referring Agency Name' => 'custom_352', // Adjust if different
+      'Medicaid Eligibility Determination' => 'custom_353', // Adjust if different
+      'Health Needs-Based Criteria' => 'custom_354', // Adjust if different
+      'Risk Factors' => 'custom_355', // Adjust if different
+      'Assigned Provider Name' => 'custom_356', // Adjust if different
+      'Enrollment Status' => 'custom_357', // Adjust if different
+      'Notes' => 'custom_358', // Adjust if different
+      'Benefit Limitation (180 Day Period)' => 'custom_359', // Adjust if different
+      'Auth Start Date' => 'custom_360', // Adjust if different
+      'Auth End Date' => 'custom_361', // Adjust if different
+    ];
+    
+    // Use appropriate field map based on prefix
+    $fieldMappings = ($fieldPrefix === 'Housing') ? $housingFieldMap : $employmentFieldMap;
+
+    // Add custom fields to activity using direct field IDs
+    CRM_Core_Error::debug_log_message('UnitLedger CSV: Processing ' . count($fieldMappings) . ' custom fields for activity (using direct field IDs)');
+    $fieldsFound = 0;
+    $fieldsSkipped = 0;
+    
+    foreach ($fieldMappings as $csvColumn => $customFieldName) {
       $value = trim($rowData[$csvColumn] ?? '');
-      if ($value !== '') {
-        $customFieldName = NULL;
-        $matchedLabel = NULL;
+      if ($value !== '' && $customFieldName) {
+        $fieldsFound++;
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Mapping CSV column "' . $csvColumn . '" to field ' . $customFieldName . ' with value: "' . $value . '"');
         
-        // Try each field label variation
-        if (is_array($fieldLabelVariations)) {
-          foreach ($fieldLabelVariations as $fieldLabel) {
-            $customFieldName = self::getActivityCustomFieldName($fieldLabel);
-            if ($customFieldName) {
-              $matchedLabel = $fieldLabel;
-              break; // Found it, stop searching
-            }
+        // Handle date fields specially
+        if (stripos($csvColumn, 'Date') !== false) {
+          $value = self::parseDate($value);
+        }
+        // Handle numeric fields
+        elseif (stripos($csvColumn, 'Benefit Limitation') !== false) {
+          $value = (int) $value;
+        }
+        // Handle Reauth field - convert "No" to empty or appropriate value
+        elseif (stripos($csvColumn, 'Reauth') !== false) {
+          if (stripos($value, 'No') !== false || empty($value)) {
+            // Leave empty or set to appropriate option value
+            // The dropdown will handle the mapping
           }
         } else {
-          $customFieldName = self::getActivityCustomFieldName($fieldLabelVariations);
-          $matchedLabel = $fieldLabelVariations;
+          // Convert value based on field type (contact reference, option value, etc.)
+          $originalValue = $value;
+          $value = self::convertFieldValue($customFieldName, $value, 'Activity');
+          if ($value === NULL && $originalValue !== '') {
+            // Conversion failed - check if it's an option value field
+            $fieldInfo = self::getCustomFieldInfo($customFieldName, 'Activity');
+            if ($fieldInfo && !empty($fieldInfo['option_group_id'])) {
+              // It's an option value field - try to find by partial match or skip
+              CRM_Core_Error::debug_log_message('UnitLedger CSV: Option value not found for "' . $originalValue . '" in field "' . $customFieldName . '", will skip this field');
+              $fieldsSkipped++;
+              continue;
+            } else {
+              // Not an option value field, might be text - use original value
+              $value = $originalValue;
+              CRM_Core_Error::debug_log_message('UnitLedger CSV: Using original value for field ' . $customFieldName . ': ' . $value);
+            }
+          }
         }
         
-        if ($customFieldName) {
-          $fieldsFound++;
-          CRM_Core_Error::debug_log_message('UnitLedger CSV: Found field for CSV column "' . $csvColumn . '" -> ' . $matchedLabel . ' = ' . $customFieldName);
-          // Handle date fields specially
-          if (stripos($csvColumn, 'Date') !== false) {
-            $value = self::parseDate($value);
-          }
-          // Handle numeric fields
-          elseif (stripos($csvColumn, 'Benefit Limitation') !== false) {
-            $value = (int) $value;
-          }
-          // Handle Reauth field - convert "No" to empty or appropriate value
-          elseif (stripos($csvColumn, 'Reauth') !== false) {
-            if (stripos($value, 'No') !== false || empty($value)) {
-              // Leave empty or set to appropriate option value
-              // The dropdown will handle the mapping
-            }
-          } else {
-            // Convert value based on field type (contact reference, option value, etc.)
-            $originalValue = $value;
-            $value = self::convertFieldValue($customFieldName, $value, 'Activity');
-            if ($value === NULL && $originalValue !== '') {
-              // Conversion failed - check if it's an option value field
-              $fieldInfo = self::getCustomFieldInfo($customFieldName, 'Activity');
-              if ($fieldInfo && !empty($fieldInfo['option_group_id'])) {
-                // It's an option value field - try to find by partial match or skip
-                CRM_Core_Error::debug_log_message('UnitLedger CSV: Option value not found for "' . $originalValue . '" in field "' . $customFieldName . '", will skip this field');
-                continue;
-              } else {
-                // Not an option value field, might be text - use original value
-                $value = $originalValue;
-                CRM_Core_Error::debug_log_message('UnitLedger CSV: Using original value for field ' . $customFieldName . ': ' . $value);
-              }
-            }
-          }
-          
-          // Only add if value is not NULL
-          if ($value !== NULL && $value !== '') {
-            $createParams[$customFieldName] = $value;
-          }
-        } else {
-          // Log when field is not found (for debugging)
-          $fieldsNotFound++;
-          $labelToTry = is_array($fieldLabelVariations) ? $fieldLabelVariations[0] : $fieldLabelVariations;
-          CRM_Core_Error::debug_log_message('UnitLedger CSV: Activity custom field not found for: ' . $labelToTry . ' (CSV column: ' . $csvColumn . ', value: "' . $value . '")');
+        // Only add if value is not NULL
+        if ($value !== NULL && $value !== '') {
+          $createParams[$customFieldName] = $value;
         }
       }
     }
     
-    CRM_Core_Error::debug_log_message('UnitLedger CSV: Custom fields summary - Found: ' . $fieldsFound . ', Not found: ' . $fieldsNotFound . ', Total params: ' . count($createParams));
+    CRM_Core_Error::debug_log_message('UnitLedger CSV: Custom fields summary - Found: ' . $fieldsFound . ', Skipped: ' . $fieldsSkipped . ', Total params: ' . count($createParams));
 
     // Create the activity
     try {
