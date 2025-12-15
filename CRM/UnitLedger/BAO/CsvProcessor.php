@@ -466,9 +466,12 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       $prefix = 'Employment';
     }
     
-    // Map CSV columns to case custom fields using direct field IDs
-    // Employment case fields (FCS Case Profile - ending in _78)
-    $employmentFieldMap = [
+    // Calculate suffix for FCS Case Profile fields: case_id - 6
+    $fieldSuffix = $caseId - 6;
+    
+    // Map CSV columns to case custom fields using direct field IDs with suffix
+    // Base field IDs for FCS Case Profile (PHI) block
+    $baseFieldMap = [
       'Assessment ID' => 'custom_19',
       'Medicaid Eligibility Determination' => 'custom_104',
       'Reauth (R1, R2)' => 'custom_20',
@@ -481,22 +484,11 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       'Auth End Date' => 'custom_28',
     ];
     
-    // Housing case fields (FCS Case Profile - ending in _79)
-    $housingFieldMap = [
-      'Assessment ID' => 'custom_19',
-      'Medicaid Eligibility Determination' => 'custom_104',
-      'Reauth (R1, R2)' => 'custom_20',
-      'Health Needs-Based Criteria' => 'custom_21',
-      'Risk Factors' => 'custom_22',
-      'Enrollment Status' => 'custom_23',
-      'Assigned Provider Name' => 'custom_25',
-      'Notes' => 'custom_26',
-      'Auth Start Date' => 'custom_27',
-      'Auth End Date' => 'custom_28',
-    ];
-    
-    // Use appropriate field map based on prefix
-    $fieldMappings = ($prefix === 'Housing') ? $housingFieldMap : $employmentFieldMap;
+    // Apply suffix to each FCS Case Profile field ID
+    $fieldMappings = [];
+    foreach ($baseFieldMap as $csvColumn => $baseFieldId) {
+      $fieldMappings[$csvColumn] = $baseFieldId . '_' . $fieldSuffix;
+    }
     
     // For Employment cases, add Employment Units fields
     if ($prefix === 'Employment') {
@@ -573,10 +565,10 @@ class CRM_UnitLedger_BAO_CsvProcessor {
     foreach ($fieldMappings as $csvColumn => $fieldLabel) {
       $value = trim($rowData[$csvColumn] ?? '');
       if ($value !== '' || $csvColumn === 'Total Employment Units Delivered' || $csvColumn === 'Total Housing Units Delivered') { // Allow 0 for Delivered fields
-        // Check if this is a direct field ID (like custom_314) or needs lookup by label
+        // Check if this is a direct field ID (like custom_314 or custom_19_85) or needs lookup by label
         $customFieldName = NULL;
-        if (preg_match('/^custom_\d+$/', $fieldLabel)) {
-          // It's already a direct field ID (e.g., custom_314)
+        if (preg_match('/^custom_\d+(_\d+)?$/', $fieldLabel)) {
+          // It's already a direct field ID (e.g., custom_314 or custom_19_85)
           $customFieldName = $fieldLabel;
         } else {
           // Look up by label
