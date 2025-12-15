@@ -466,23 +466,37 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       $prefix = 'Employment';
     }
     
-    // Map CSV columns to case custom fields using direct field IDs (same as Housing)
-    // Note: Using same field IDs as Housing since they're in the same custom group
-    $fieldMappings = [
-      'Assessment ID' => $prefix . ' Assessment ID', // Will be looked up by label
-      'Reauth (R1, R2)' => $prefix . ' Reauth', // Will be looked up by label
-      'Medicaid Eligibility Determination' => 'Medicaid Eligibility Determination', // Will be looked up by label
-      'Health Needs-Based Criteria' => $prefix . ' Health Needs-Based Criteria', // Will be looked up by label
-      'Risk Factors' => $prefix . ' Risk Factors', // Will be looked up by label
-      'Enrollment Status' => $prefix . ' Enrollment Status', // Will be looked up by label
-      'Notes' => $prefix . ' Authorization Notes', // Will be looked up by label
-      'Auth Start Date' => $prefix . ' Auth Start Date', // Will be looked up by label
-      'Auth End Date' => $prefix . ' Auth End Date', // Will be looked up by label
+    // Map CSV columns to case custom fields using direct field IDs
+    // Employment case fields (FCS Case Profile - ending in _78)
+    $employmentFieldMap = [
+      'Assessment ID' => 'custom_19',
+      'Medicaid Eligibility Determination' => 'custom_104',
+      'Reauth (R1, R2)' => 'custom_20',
+      'Health Needs-Based Criteria' => 'custom_21',
+      'Risk Factors' => 'custom_22',
+      'Enrollment Status' => 'custom_23',
+      'Assigned Provider Name' => 'custom_25',
+      'Notes' => 'custom_26',
+      'Auth Start Date' => 'custom_27',
+      'Auth End Date' => 'custom_28',
     ];
     
-    // Map Assigned Provider Name using direct field ID (same for both Housing and Employment)
-    // Both use custom_25 based on the FCS Case Profile custom group
-    $fieldMappings['Assigned Provider Name'] = 'custom_25';
+    // Housing case fields (FCS Case Profile - ending in _79)
+    $housingFieldMap = [
+      'Assessment ID' => 'custom_19',
+      'Medicaid Eligibility Determination' => 'custom_104',
+      'Reauth (R1, R2)' => 'custom_20',
+      'Health Needs-Based Criteria' => 'custom_21',
+      'Risk Factors' => 'custom_22',
+      'Enrollment Status' => 'custom_23',
+      'Assigned Provider Name' => 'custom_25',
+      'Notes' => 'custom_26',
+      'Auth Start Date' => 'custom_27',
+      'Auth End Date' => 'custom_28',
+    ];
+    
+    // Use appropriate field map based on prefix
+    $fieldMappings = ($prefix === 'Housing') ? $housingFieldMap : $employmentFieldMap;
     
     // For Employment cases, add Employment Units fields
     if ($prefix === 'Employment') {
