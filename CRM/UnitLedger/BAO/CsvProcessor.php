@@ -584,9 +584,15 @@ class CRM_UnitLedger_BAO_CsvProcessor {
         }
         
         if ($customFieldName) {
-          // Handle date fields specially
-          if (strpos($fieldLabel, 'Date') !== false) {
+          // Handle date fields specially - check CSV column name for date fields
+          if (stripos($csvColumn, 'Date') !== false) {
+            $originalDateValue = $value;
             $value = self::parseDate($value);
+            if ($value === NULL && !empty($originalDateValue)) {
+              CRM_Core_Error::debug_log_message('UnitLedger CSV: Failed to parse date "' . $originalDateValue . '" for field ' . $csvColumn . ' (' . $customFieldName . '), skipping');
+              continue;
+            }
+            CRM_Core_Error::debug_log_message('UnitLedger CSV: Parsed date "' . $originalDateValue . '" to "' . $value . '" for field ' . $csvColumn . ' (' . $customFieldName . ')');
           } 
           // Handle Open Case field - it's already a contact ID, use as-is
           elseif ($csvColumn === 'Open Case (Assignee)') {
@@ -1540,11 +1546,26 @@ class CRM_UnitLedger_BAO_CsvProcessor {
         return;
       }
       
-      // Convert value based on field type
-      $convertedValue = self::convertFieldValue($customFieldName, $value, 'Case');
-      if ($convertedValue === NULL && $value !== '') {
-        // Conversion failed, skip this field
-        return;
+      // Check if value is already a properly formatted date (YYYY-MM-DD)
+      $isDateFormatted = preg_match('/^\d{4}-\d{2}-\d{2}$/', $value);
+      
+      // Convert value based on field type (but skip if already a date)
+      $convertedValue = $value;
+      if (!$isDateFormatted) {
+        $convertedValue = self::convertFieldValue($customFieldName, $value, 'Case');
+        if ($convertedValue === NULL && $value !== '') {
+          // Conversion failed, skip this field
+          return;
+        }
+      }
+      
+      // If it's a date field and not already formatted, parse it
+      if ($fieldInfo['data_type'] === 'Date' && !$isDateFormatted) {
+        $convertedValue = self::parseDate($value);
+        if ($convertedValue === NULL) {
+          CRM_Core_Error::debug_log_message('UnitLedger CSV: Failed to parse date "' . $value . '" for field ' . $customFieldName);
+          return;
+        }
       }
       
       $tableName = $fieldInfo['table_name'];
@@ -1558,6 +1579,16 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       } elseif ($fieldInfo['data_type'] === 'Float' || $fieldInfo['data_type'] === 'Money') {
         $dataType = 'Float';
         $convertedValue = (float) $convertedValue;
+      } elseif ($fieldInfo['data_type'] === 'Date' || $fieldInfo['data_type'] === 'DateTime') {
+        // Ensure date is in YYYY-MM-DD format for database
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}/', $convertedValue)) {
+          $convertedValue = self::parseDate($convertedValue);
+          if ($convertedValue === NULL) {
+            CRM_Core_Error::debug_log_message('UnitLedger CSV: Invalid date format for field ' . $customFieldName . ': ' . $value);
+            return;
+          }
+        }
+        $dataType = 'Date';
       }
       
       // Check if record exists
