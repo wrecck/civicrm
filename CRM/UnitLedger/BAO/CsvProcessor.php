@@ -602,20 +602,22 @@ class CRM_UnitLedger_BAO_CsvProcessor {
           // Handle Assigned Provider Name field - convert to contact ID
           elseif ($csvColumn === 'Assigned Provider Name') {
             $originalValue = $value;
-            $value = self::convertFieldValue($customFieldName, $value, 'Case');
-            if ($value === NULL) {
-              CRM_Core_Error::debug_log_message('UnitLedger CSV: Failed to find contact for Assigned Provider Name: ' . $originalValue);
-              // Don't skip - try to find contact using findContactByName directly
-              $contactId = self::findContactByName($originalValue);
-              if ($contactId) {
-                $value = $contactId;
-                CRM_Core_Error::debug_log_message('UnitLedger CSV: Found contact ID ' . $contactId . ' for Assigned Provider Name: ' . $originalValue);
-              } else {
-                CRM_Core_Error::debug_log_message('UnitLedger CSV: Contact not found for Assigned Provider Name: ' . $originalValue . ', skipping field');
-                continue;
-              }
+            CRM_Core_Error::debug_log_message('UnitLedger CSV: Processing Assigned Provider Name field - CSV value: "' . $originalValue . '", field ID: ' . $customFieldName);
+            
+            // Get field info to verify it's a ContactReference field
+            $fieldInfo = self::getCustomFieldInfo($customFieldName, 'Case');
+            if ($fieldInfo) {
+              CRM_Core_Error::debug_log_message('UnitLedger CSV: Field info for ' . $customFieldName . ' - data_type: ' . ($fieldInfo['data_type'] ?? 'N/A') . ', html_type: ' . ($fieldInfo['html_type'] ?? 'N/A'));
+            }
+            
+            // Always use findContactByName directly for Assigned Provider field
+            $contactId = self::findContactByName($originalValue);
+            if ($contactId) {
+              $value = $contactId;
+              CRM_Core_Error::debug_log_message('UnitLedger CSV: Setting Assigned Provider Name field (' . $customFieldName . ') to contact ID: ' . $contactId . ' for provider: "' . $originalValue . '"');
             } else {
-              CRM_Core_Error::debug_log_message('UnitLedger CSV: Setting Assigned Provider Name (' . $customFieldName . ') to contact ID: ' . $value);
+              CRM_Core_Error::debug_log_message('UnitLedger CSV: Contact not found for Assigned Provider Name: "' . $originalValue . '", skipping field ' . $customFieldName);
+              continue;
             }
           }
           // Handle Units fields (both Housing and Employment) - they're numeric, use as-is
@@ -1425,33 +1427,71 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       return NULL;
     }
     
+    $name = trim($name);
+    CRM_Core_Error::debug_log_message('UnitLedger CSV: Searching for contact with name: "' . $name . '"');
+    
     try {
-      // Try organization first (for providers/agencies)
+      // Try organization first (for providers/agencies) - exact match
       $result = civicrm_api3('Contact', 'get', [
         'contact_type' => 'Organization',
         'organization_name' => $name,
-        'return' => ['id'],
+        'return' => ['id', 'organization_name'],
         'options' => ['limit' => 1],
       ]);
       
       if ($result['count'] > 0) {
-        return $result['id'];
+        $contactId = $result['id'];
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Found organization contact ID ' . $contactId . ' for exact match: "' . $name . '"');
+        return $contactId;
       }
       
-      // Try individual by display name
+      // Try organization with LIKE (partial match, case-insensitive)
+      $result = civicrm_api3('Contact', 'get', [
+        'contact_type' => 'Organization',
+        'organization_name' => ['LIKE' => '%' . $name . '%'],
+        'return' => ['id', 'organization_name'],
+        'options' => ['limit' => 1, 'sort' => 'organization_name ASC'],
+      ]);
+      
+      if ($result['count'] > 0) {
+        $contactId = $result['id'];
+        $foundName = $result['values'][$contactId]['organization_name'] ?? 'N/A';
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Found organization contact ID ' . $contactId . ' (name: "' . $foundName . '") for partial match: "' . $name . '"');
+        return $contactId;
+      }
+      
+      // Try individual by display name - exact match
       $result = civicrm_api3('Contact', 'get', [
         'display_name' => $name,
-        'return' => ['id'],
+        'return' => ['id', 'display_name'],
         'options' => ['limit' => 1],
       ]);
       
       if ($result['count'] > 0) {
-        return $result['id'];
+        $contactId = $result['id'];
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Found individual contact ID ' . $contactId . ' for exact match: "' . $name . '"');
+        return $contactId;
       }
+      
+      // Try individual with LIKE (partial match, case-insensitive)
+      $result = civicrm_api3('Contact', 'get', [
+        'display_name' => ['LIKE' => '%' . $name . '%'],
+        'return' => ['id', 'display_name'],
+        'options' => ['limit' => 1, 'sort' => 'display_name ASC'],
+      ]);
+      
+      if ($result['count'] > 0) {
+        $contactId = $result['id'];
+        $foundName = $result['values'][$contactId]['display_name'] ?? 'N/A';
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Found individual contact ID ' . $contactId . ' (name: "' . $foundName . '") for partial match: "' . $name . '"');
+        return $contactId;
+      }
+      
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: No contact found for name: "' . $name . '"');
     } catch (Exception $e) {
       CRM_Core_Error::debug_log_message('UnitLedger CSV: Error finding contact: ' . $e->getMessage());
     }
-    
+
     return NULL;
   }
 
