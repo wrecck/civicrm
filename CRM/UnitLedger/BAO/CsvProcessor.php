@@ -643,13 +643,37 @@ class CRM_UnitLedger_BAO_CsvProcessor {
     }
 
     // Update case via API
+    CRM_Core_Error::debug_log_message('UnitLedger CSV: Updating case ID ' . $caseId . ' with ' . count($updateParams) . ' fields via API');
+    CRM_Core_Error::debug_log_message('UnitLedger CSV: Case update params: ' . json_encode($updateParams));
+    
+    // Log Assigned Provider field specifically
+    if (isset($updateParams['custom_25'])) {
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Assigned Provider field (custom_25) value in updateParams: ' . $updateParams['custom_25']);
+    }
+    
     try {
-      civicrm_api3('Case', 'create', $updateParams);
+      $result = civicrm_api3('Case', 'create', $updateParams);
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Case API update successful for case ID ' . $caseId);
+      
+      // Verify the Assigned Provider field was set correctly
+      if (isset($updateParams['custom_25'])) {
+        $verifyResult = civicrm_api3('Case', 'get', [
+          'id' => $caseId,
+          'return' => ['custom_25'],
+        ]);
+        if ($verifyResult['count'] > 0) {
+          $setValue = $verifyResult['values'][$caseId]['custom_25'] ?? 'NOT SET';
+          CRM_Core_Error::debug_log_message('UnitLedger CSV: Verified Assigned Provider field (custom_25) after update: ' . $setValue);
+        }
+      }
     } catch (Exception $e) {
       CRM_Core_Error::debug_log_message('UnitLedger CSV: API update failed, trying direct SQL: ' . $e->getMessage());
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Exception trace: ' . $e->getTraceAsString());
       
       // Fall back to direct SQL updates
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Falling back to direct SQL updates for ' . count($directFields) . ' fields');
       foreach ($directFields as $customFieldName => $value) {
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Setting field ' . $customFieldName . ' = ' . $value . ' via direct SQL');
         self::setCaseCustomField($caseId, $customFieldName, $value);
       }
     }
