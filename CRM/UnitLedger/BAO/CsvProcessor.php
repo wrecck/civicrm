@@ -480,7 +480,7 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       'Auth Start Date' => 'custom_27',
       'Auth End Date' => 'custom_28',
     ];
-    
+     
     // Housing case fields (FCS Case Profile - ending in _79)
     $housingFieldMap = [
       'Assessment ID' => 'custom_19',
@@ -592,6 +592,25 @@ class CRM_UnitLedger_BAO_CsvProcessor {
           elseif ($csvColumn === 'Open Case (Assignee)') {
             $value = (int) $value; // Ensure it's an integer
             CRM_Core_Error::debug_log_message('UnitLedger CSV: Setting Open Case field to contact ID: ' . $value);
+          }
+          // Handle Assigned Provider Name field - convert to contact ID
+          elseif ($csvColumn === 'Assigned Provider Name') {
+            $originalValue = $value;
+            $value = self::convertFieldValue($customFieldName, $value, 'Case');
+            if ($value === NULL) {
+              CRM_Core_Error::debug_log_message('UnitLedger CSV: Failed to find contact for Assigned Provider Name: ' . $originalValue);
+              // Don't skip - try to find contact using findContactByName directly
+              $contactId = self::findContactByName($originalValue);
+              if ($contactId) {
+                $value = $contactId;
+                CRM_Core_Error::debug_log_message('UnitLedger CSV: Found contact ID ' . $contactId . ' for Assigned Provider Name: ' . $originalValue);
+              } else {
+                CRM_Core_Error::debug_log_message('UnitLedger CSV: Contact not found for Assigned Provider Name: ' . $originalValue . ', skipping field');
+                continue;
+              }
+            } else {
+              CRM_Core_Error::debug_log_message('UnitLedger CSV: Setting Assigned Provider Name (' . $customFieldName . ') to contact ID: ' . $value);
+            }
           }
           // Handle Units fields (both Housing and Employment) - they're numeric, use as-is
           elseif (stripos($csvColumn, 'Units Allocated') !== false || 
