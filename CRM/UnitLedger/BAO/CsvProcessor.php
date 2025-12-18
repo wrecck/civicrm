@@ -1665,7 +1665,13 @@ class CRM_UnitLedger_BAO_CsvProcessor {
         $score += $wordScore * 0.3;
         
         // Method 4: Key phrase matching (for specific domain terms)
-        $keyPhrases = ['abp', 'medicaid', 'aca', 'mental health', 'substance', 'sud', 'housing', 'employment', 'chronic', 'homelessness', 'institutional'];
+        $keyPhrases = [
+          'abp', 'medicaid', 'aca', 'mental health', 'substance', 'sud', 
+          'housing', 'employment', 'chronic', 'homelessness', 'institutional',
+          'disorder', 'addiction', 'asam', 'diagnosed', 'disability', 'ssi', 'ssdi',
+          'pregnant', 'parent', 'child', 'foster', 'incarceration', 'jail', 'prison',
+          'isolation', 'poverty', 'criminal', 'justice', 'eviction', 'risk'
+        ];
         $keyMatches = 0;
         foreach ($keyPhrases as $phrase) {
           if (strpos($searchLower, $phrase) !== false && strpos($optionLower, $phrase) !== false) {
@@ -1718,13 +1724,28 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       // Check if value is already a numeric ID (for ContactReference fields)
       $isNumericId = is_numeric($value) && $fieldInfo['data_type'] === 'ContactReference';
       
+      // Check if this is an option field that needs conversion
+      $isOptionField = in_array($fieldInfo['html_type'], ['Select', 'Radio', 'CheckBox', 'Multi-Select']) && !empty($fieldInfo['option_group_id']);
+      
       // Convert value based on field type (but skip if already a date or numeric ID)
       $convertedValue = $value;
       if (!$isDateFormatted && !$isNumericId) {
-        $convertedValue = self::convertFieldValue($customFieldName, $value, 'Case');
-        if ($convertedValue === NULL && $value !== '') {
-          // Conversion failed, skip this field
-          return;
+        // For option fields, try to find the option value with fuzzy matching
+        if ($isOptionField) {
+          $optionValue = self::getOptionValueId($fieldInfo['option_group_id'], $value);
+          if ($optionValue !== NULL) {
+            $convertedValue = $optionValue;
+            CRM_Core_Error::debug_log_message('UnitLedger CSV: Converted option value for ' . $customFieldName . ': "' . $value . '" -> "' . $optionValue . '"');
+          } else {
+            CRM_Core_Error::debug_log_message('UnitLedger CSV: Could not find option value for ' . $customFieldName . ': "' . $value . '", using raw value');
+            // Use raw value - it may work if it's already an option value key
+          }
+        } else {
+          $convertedValue = self::convertFieldValue($customFieldName, $value, 'Case');
+          if ($convertedValue === NULL && $value !== '') {
+            // Conversion failed, skip this field
+            return;
+          }
         }
       }
       
