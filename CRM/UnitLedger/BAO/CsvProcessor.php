@@ -1613,9 +1613,12 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       // Check if value is already a properly formatted date (YYYY-MM-DD)
       $isDateFormatted = preg_match('/^\d{4}-\d{2}-\d{2}$/', $value);
       
-      // Convert value based on field type (but skip if already a date)
+      // Check if value is already a numeric ID (for ContactReference fields)
+      $isNumericId = is_numeric($value) && $fieldInfo['data_type'] === 'ContactReference';
+      
+      // Convert value based on field type (but skip if already a date or numeric ID)
       $convertedValue = $value;
-      if (!$isDateFormatted) {
+      if (!$isDateFormatted && !$isNumericId) {
         $convertedValue = self::convertFieldValue($customFieldName, $value, 'Case');
         if ($convertedValue === NULL && $value !== '') {
           // Conversion failed, skip this field
