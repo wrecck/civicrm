@@ -1586,8 +1586,110 @@ class CRM_UnitLedger_BAO_CsvProcessor {
       if ($id) {
         return $id;
       }
+      
+      // Try fuzzy matching - find the most similar option
+      $bestMatch = self::findBestMatchingOption($optionGroupId, $label);
+      if ($bestMatch) {
+        CRM_Core_Error::debug_log_message('UnitLedger CSV: Fuzzy matched "' . $label . '" to "' . $bestMatch['label'] . '" (similarity: ' . $bestMatch['score'] . '%)');
+        return $bestMatch['value'];
+      }
     } catch (Exception $e) {
       CRM_Core_Error::debug_log_message('UnitLedger CSV: Error finding option value: ' . $e->getMessage());
+    }
+    
+    return NULL;
+  }
+
+  /**
+   * Find the best matching option using fuzzy string matching
+   *
+   * @param int $optionGroupId
+   * @param string $searchLabel
+   * @return array|null ['value' => ..., 'label' => ..., 'score' => ...]
+   */
+  private static function findBestMatchingOption($optionGroupId, $searchLabel) {
+    if (empty($searchLabel)) {
+      return NULL;
+    }
+    
+    try {
+      // Get all options for this group
+      $result = civicrm_api3('OptionValue', 'get', [
+        'option_group_id' => $optionGroupId,
+        'is_active' => 1,
+        'return' => ['value', 'label'],
+        'options' => ['limit' => 0],
+      ]);
+      
+      if ($result['count'] == 0) {
+        return NULL;
+      }
+      
+      $searchLower = strtolower(trim($searchLabel));
+      $searchWords = preg_split('/\s+/', $searchLower);
+      $bestMatch = NULL;
+      $bestScore = 0;
+      
+      foreach ($result['values'] as $option) {
+        $optionLabel = $option['label'];
+        $optionLower = strtolower($optionLabel);
+        
+        // Calculate similarity score using multiple methods
+        $score = 0;
+        
+        // Method 1: similar_text percentage
+        similar_text($searchLower, $optionLower, $similarityPercent);
+        $score += $similarityPercent * 0.3;
+        
+        // Method 2: Levenshtein distance (normalized)
+        $maxLen = max(strlen($searchLower), strlen($optionLower));
+        if ($maxLen > 0) {
+          $levenshtein = levenshtein(substr($searchLower, 0, 255), substr($optionLower, 0, 255));
+          $levenshteinScore = (1 - ($levenshtein / $maxLen)) * 100;
+          $score += max(0, $levenshteinScore) * 0.2;
+        }
+        
+        // Method 3: Word matching - count matching words
+        $optionWords = preg_split('/\s+/', $optionLower);
+        $matchingWords = 0;
+        foreach ($searchWords as $word) {
+          if (strlen($word) < 3) continue; // Skip short words
+          foreach ($optionWords as $optWord) {
+            if (strpos($optWord, $word) !== false || strpos($word, $optWord) !== false) {
+              $matchingWords++;
+              break;
+            }
+          }
+        }
+        $wordScore = count($searchWords) > 0 ? ($matchingWords / count($searchWords)) * 100 : 0;
+        $score += $wordScore * 0.3;
+        
+        // Method 4: Key phrase matching (for specific domain terms)
+        $keyPhrases = ['abp', 'medicaid', 'aca', 'mental health', 'substance', 'sud', 'housing', 'employment', 'chronic', 'homelessness', 'institutional'];
+        $keyMatches = 0;
+        foreach ($keyPhrases as $phrase) {
+          if (strpos($searchLower, $phrase) !== false && strpos($optionLower, $phrase) !== false) {
+            $keyMatches++;
+          }
+        }
+        $score += $keyMatches * 10;
+        
+        if ($score > $bestScore) {
+          $bestScore = $score;
+          $bestMatch = [
+            'value' => $option['value'],
+            'label' => $optionLabel,
+            'score' => round($score, 1),
+          ];
+        }
+      }
+      
+      // Only return if we have a reasonable match (score > 30%)
+      if ($bestMatch && $bestScore >= 30) {
+        return $bestMatch;
+      }
+    } catch (Exception $e) {
+      CRM_Core_Error::debug_log_message('UnitLedger CSV: Error in fuzzy matching: ' . $e->getMessage());
     }
     
     return NULL;
