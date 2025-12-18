@@ -1655,7 +1655,8 @@ class CRM_UnitLedger_BAO_CsvProcessor {
             return;
           }
         }
-        $dataType = 'Date';
+        // Use String type for dates in SQL - CiviCRM doesn't have a 'Date' type for DAO
+        $dataType = 'String';
       }
       
       // Check if record exists
