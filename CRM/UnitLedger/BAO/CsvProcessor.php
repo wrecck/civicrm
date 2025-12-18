@@ -1670,7 +1670,9 @@ class CRM_UnitLedger_BAO_CsvProcessor {
           'housing', 'employment', 'chronic', 'homelessness', 'institutional',
           'disorder', 'addiction', 'asam', 'diagnosed', 'disability', 'ssi', 'ssdi',
           'pregnant', 'parent', 'child', 'foster', 'incarceration', 'jail', 'prison',
-          'isolation', 'poverty', 'criminal', 'justice', 'eviction', 'risk'
+          'isolation', 'poverty', 'criminal', 'justice', 'eviction', 'risk',
+          'mental', 'illness', 'stabilization', 'deterioration', 'improvement',
+          'behavioral', 'health', 'crisis', 'hospitalization', 'treatment'
         ];
         $keyMatches = 0;
         foreach ($keyPhrases as $phrase) {
@@ -1690,8 +1692,8 @@ class CRM_UnitLedger_BAO_CsvProcessor {
         }
       }
       
-      // Only return if we have a reasonable match (score > 30%)
-      if ($bestMatch && $bestScore >= 30) {
+      // Only return if we have a reasonable match (score > 25%)
+      if ($bestMatch && $bestScore >= 25) {
         return $bestMatch;
       }
     } catch (Exception $e) {
